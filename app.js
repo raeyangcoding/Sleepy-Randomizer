@@ -9,6 +9,7 @@
   ];
 
   let list = [];
+  let currentPickId = null;
   let listPanelOpen = false;
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -20,12 +21,26 @@
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.length) list = parsed;
-        else list = [...DEFAULT_LIST];
+        else {
+          if (Array.isArray(window.RECOMMENDED_VIDEOS) && window.RECOMMENDED_VIDEOS.length) {
+            list = [...window.RECOMMENDED_VIDEOS];
+          } else {
+            list = [...DEFAULT_LIST];
+          }
+        }
+      } else {
+        if (Array.isArray(window.RECOMMENDED_VIDEOS) && window.RECOMMENDED_VIDEOS.length) {
+          list = [...window.RECOMMENDED_VIDEOS];
+        } else {
+          list = [...DEFAULT_LIST];
+        }
+      }
+    } catch (_) {
+      if (Array.isArray(window.RECOMMENDED_VIDEOS) && window.RECOMMENDED_VIDEOS.length) {
+        list = [...window.RECOMMENDED_VIDEOS];
       } else {
         list = [...DEFAULT_LIST];
       }
-    } catch (_) {
-      list = [...DEFAULT_LIST];
     }
   }
 
@@ -53,9 +68,46 @@
     return null;
   }
 
-  function youtubeCover(videoId) {
-    return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+  async function fetchBilibiliCover(bvid, maxRetries = 3) {
+    const API_URL = `https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`;
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const data = await response.json();
+        if (data.code === 0 && data.data && data.data.pic) {
+          return processBilibiliCover(data.data.pic);
+        }
+        throw new Error('Invalid API response');
+      } catch (error) {
+        if (attempt === maxRetries) {
+          console.warn(`Failed to fetch Bilibili cover for ${bvid}:`, error);
+          return null;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+    return null;
   }
+
+  function processBilibiliCover(coverUrl) {
+    if (!coverUrl) return null;
+    
+    const url = new URL(coverUrl);
+    
+    if (url.hostname.includes('hdslb.com')) {
+      url.searchParams.set('width', '320');
+      url.searchParams.set('height', '180');
+    }
+    
+    return url.toString();
+  }
+
+  function youtubeCover(videoId) {
+     return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+   }
 
   function fetchYoutubeTitle(url) {
     return fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`)
@@ -66,9 +118,9 @@
 
   function addVideoToList(item) {
     if (item.source === 'youtube') {
-      const id = 'yt-' + item.videoId;
-      if (list.some(v => v.id === id)) return;
       return fetchYoutubeTitle(item.url).then(title => {
+        const id = 'yt-' + item.videoId;
+        if (list.some(v => v.id === id)) return Promise.resolve();
         list.push({
           id,
           source: 'youtube',
@@ -84,18 +136,64 @@
     if (item.source === 'bilibili') {
       const id = 'bl-' + item.bvid;
       if (list.some(v => v.id === id)) return Promise.resolve();
-      list.push({
+      
+      const tempItem = {
         id,
         source: 'bilibili',
         bvid: item.bvid,
         url: item.url,
         title: 'B站视频 ' + item.bvid,
-        cover: ''
-      });
+        cover: '',
+        loading: true
+      };
+      
+      list.push(tempItem);
       saveList();
       renderList();
-      return Promise.resolve();
+      
+      return fetchBilibiliCover(item.bvid).then(coverUrl => {
+        const videoIndex = list.findIndex(v => v.id === id);
+        if (videoIndex !== -1) {
+          list[videoIndex].cover = coverUrl || '';
+          list[videoIndex].loading = false;
+          if (currentPickId === id) showPick(list[videoIndex]);
+          
+          if (!coverUrl) {
+            return fetchBilibiliTitle(item.bvid).then(title => {
+              if (title) list[videoIndex].title = title;
+              saveList();
+              renderList();
+            });
+          }
+          
+          saveList();
+          renderList();
+        }
+      }).catch(error => {
+        console.warn('Failed to fetch Bilibili cover:', error);
+        const videoIndex = list.findIndex(v => v.id === id);
+        if (videoIndex !== -1) {
+          list[videoIndex].loading = false;
+          saveList();
+          renderList();
+        }
+      });
     }
+  }
+
+  async function fetchBilibiliTitle(bvid) {
+    try {
+      const response = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`);
+      if (!response.ok) return null;
+      
+      const data = await response.json();
+      if (data.code === 0 && data.data && data.data.title) {
+        return data.data.title;
+      }
+    } catch (error) {
+      console.warn('Failed to fetch Bilibili title:', error);
+    }
+    return null;
   }
 
   function removeVideo(id) {
@@ -116,19 +214,24 @@
   function renderList() {
     const ul = $('#video-list');
     if (!ul) return;
-    ul.innerHTML = list.map(v => `
-      <li data-id="${v.id}">
-        <img class="video-item-thumb" src="${v.cover || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="45" viewBox="0 0 80 45"%3E%3Crect fill="%233d3556" width="80" height="45"/%3E%3Ctext x="50%25" y="50%25" dominant-baseline="middle" text-anchor="middle" fill="%23a89cc9" font-size="10"%3EB站%3C/text%3E%3C/svg%3E'}" alt="" />
-        <div class="video-item-info">
-          <p class="video-item-title">${escapeHtml(v.title)}</p>
-          <span class="video-item-meta">${v.source === 'youtube' ? 'YouTube' : 'Bilibili'}</span>
-        </div>
-        <div class="video-item-actions">
-          <input type="checkbox" data-id="${v.id}" aria-label="选择" />
-          <button type="button" class="btn-delete" data-id="${v.id}" aria-label="删除">删除</button>
-        </div>
-      </li>
-    `).join('');
+    const placeholder = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="45" viewBox="0 0 80 45"%3E%3Crect fill="%23000" width="80" height="45"/%3E%3C/svg%3E';
+    ul.innerHTML = list.map(v => {
+      const coverSrc = v.cover || placeholder;
+      const loadingClass = v.loading ? ' video-item-thumb--loading' : '';
+      return `
+        <li data-id="${v.id}" class="${v.loading ? 'video-item--loading' : ''}">
+          <img class="video-item-thumb${loadingClass}" src="${coverSrc}" alt="" />
+          <div class="video-item-info">
+            <p class="video-item-title">${escapeHtml(v.title)}</p>
+            <span class="video-item-meta">${v.source === 'youtube' ? 'YouTube' : 'Bilibili'}</span>
+          </div>
+          <div class="video-item-actions">
+            <input type="checkbox" data-id="${v.id}" aria-label="选择" />
+            <button type="button" class="btn-delete" data-id="${v.id}" aria-label="删除">删除</button>
+          </div>
+        </li>
+      `;
+    }).join('');
 
     ul.querySelectorAll('.btn-delete').forEach(btn => {
       btn.addEventListener('click', () => removeVideo(btn.dataset.id));
@@ -153,6 +256,28 @@
     selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
   }
 
+  function ensureBilibiliCovers() {
+    const pending = list.filter(v => v.source === 'bilibili' && !v.cover);
+    if (!pending.length) return;
+    pending.forEach(v => {
+      v.loading = true;
+    });
+    renderList();
+    pending.forEach(v => {
+      fetchBilibiliCover(v.bvid).then(coverUrl => {
+        v.cover = coverUrl || '';
+        v.loading = false;
+        if (currentPickId === v.id) showPick(v);
+        saveList();
+        renderList();
+      }).catch(() => {
+        v.loading = false;
+        saveList();
+        renderList();
+      });
+    });
+  }
+
   function pickRandom() {
     if (list.length === 0) {
       showPick(null);
@@ -168,21 +293,37 @@
     const placeholder = $('#pick-placeholder');
     const titleEl = $('#pick-title');
     const link = $('#pick-link');
-    if (!cover || !placeholder || !titleEl || !link) return;
+    const wrap = $('#pick-cover-wrap');
+    if (!cover || !placeholder || !titleEl || !link || !wrap) return;
+    currentPickId = v ? v.id : null;
+    cover.onload = () => {
+      cover.classList.add('is-loaded');
+    };
+    cover.onerror = () => {
+      cover.classList.remove('is-loaded');
+    };
     if (!v) {
+      cover.classList.remove('is-loaded');
       cover.src = '';
       cover.alt = '';
-      placeholder.hidden = false;
+      placeholder.hidden = true;
       titleEl.textContent = '';
-      link.style.display = 'none';
+      link.href = '#';
+      link.setAttribute('aria-disabled', 'true');
+      link.classList.add('is-empty');
+      wrap.classList.add('is-empty');
       return;
     }
+    cover.classList.remove('is-loaded');
     placeholder.hidden = true;
     cover.src = v.cover || '';
     cover.alt = v.title;
     titleEl.textContent = v.title;
     link.href = v.url;
-    link.style.display = 'inline-block';
+    link.removeAttribute('aria-disabled');
+    link.classList.remove('is-empty');
+    if (v.cover) wrap.classList.remove('is-empty');
+    else wrap.classList.add('is-empty');
   }
 
   function buildShareUrl() {
@@ -233,7 +374,7 @@
       shareList.innerHTML = sharedList.map(v => `
         <li>
           <a href="${v.url}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;width:100%;text-decoration:none;color:inherit;">
-            <img class="video-item-thumb" src="${v.cover || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="45"%3E%3Crect fill="%233d3556" width="80" height="45"/%3E%3C/svg%3E'}" alt="" />
+            <img class="video-item-thumb" src="${v.cover || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="45"%3E%3Crect fill="%23000" width="80" height="45"/%3E%3C/svg%3E'}" alt="" />
             <div class="video-item-info">
               <p class="video-item-title">${escapeHtml(v.title)}</p>
               <span class="video-item-meta">${v.source === 'youtube' ? 'YouTube' : 'Bilibili'}</span>
@@ -247,7 +388,8 @@
   function initMain() {
     loadList();
     renderList();
-    pickRandom();
+    showPick(null);
+    ensureBilibiliCovers();
 
     $('#btn-pick')?.addEventListener('click', pickRandom);
 
