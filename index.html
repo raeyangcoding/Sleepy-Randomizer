@@ -14,19 +14,21 @@
     <!-- 主页面 -->
     <main id="main-view" class="view">
       <header class="header">
+        <a href="music.html" class="header-music-link" aria-label="睡前音乐" title="睡前音乐">♪</a>
         <h1>随机睡前放送</h1>
-        <p class="slogan">抽一个，今晚就它了</p>
+        <p class="slogan">随机选一个✨</p>
       </header>
 
       <section class="pick-section">
         <div id="current-pick" class="current-pick card">
-          <div id="pick-cover-wrap" class="pick-cover-wrap">
-            <img id="pick-cover" class="pick-cover" src="" alt="" />
-            <span id="pick-placeholder" class="pick-placeholder">点击下方按钮抽一个</span>
-          </div>
-          <h2 id="pick-title" class="pick-title"></h2>
-          <a id="pick-link" class="pick-link" href="#" target="_blank" rel="noopener" style="display: none;">去观看</a>
-          <button type="button" id="btn-pick" class="btn btn-primary">再抽一次</button>
+          <a id="pick-link" class="pick-link" href="#" target="_blank" rel="noopener">
+            <div id="pick-cover-wrap" class="pick-cover-wrap is-empty">
+              <img id="pick-cover" class="pick-cover" src="" alt="" />
+              <span id="pick-placeholder" class="pick-placeholder">点击下方「随机抽」后显示封面，点击封面在新标签页打开视频</span>
+            </div>
+            <h2 id="pick-title" class="pick-title"></h2>
+          </a>
+          <button type="button" id="btn-pick" class="btn btn-primary">随机抽</button>
         </div>
       </section>
 
@@ -56,7 +58,7 @@
       </section>
 
       <section class="share-section">
-        <button type="button" id="btn-share" class="btn btn-secondary">生成分享链接</button>
+        <button type="button" id="btn-share" class="btn btn-secondary">分享列表</button>
         <div id="share-result" class="share-result" hidden>
           <p class="share-hint">打开即展示当前列表</p>
           <div class="share-url-wrap">
@@ -67,7 +69,8 @@
       </section>
 
       <footer class="footer">
-        <p>本页面仅供个人放松使用。视频版权归 Bilibili、YouTube 及原作者所有。用户添加与分享的列表由用户自行负责，与本站无关。</p>
+        <p>本页面仅供个人放松使用。视频版权归 Bilibili、YouTube 及原作者所有。<br/>
+          用户添加与分享的列表由用户自行负责，与本站无关。</p>
       </footer>
     </main>
 
@@ -86,6 +89,7 @@
     </main>
   </div>
 
+  <script src="data/recommended-videos.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

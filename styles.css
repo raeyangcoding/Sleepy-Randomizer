@@ -1,15 +1,15 @@
-/* 设计规范：静谧紫、neurohackslab 风格 */
+/* 设计规范：现代渐变紫、静谧感 */
 :root {
-  --bg: #2d2640;
+  --bg: #1a1625;
   --bg-card: rgba(255, 255, 255, 0.06);
-  --bg-card-hover: #3d3556;
+  --bg-card-hover: rgba(255, 255, 255, 0.1);
   --accent: #8b7cb8;
   --accent-light: #a89cc9;
   --text: #e8e6f0;
   --text-dim: #d4d0e0;
   --text-bright: #f0eeff;
-  --radius: 12px;
-  --radius-sm: 8px;
+  --radius: 16px;
+  --radius-sm: 10px;
   --font: "DM Sans", system-ui, sans-serif;
 }
 
@@ -22,7 +22,8 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--bg);
+  background: linear-gradient(160deg, #1a1625 0%, #2d2640 35%, #252035 70%, #1e1a2e 100%);
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font);
   font-size: 16px;
@@ -45,8 +46,30 @@ body {
 
 /* ----- 主页面 ----- */
 .header {
+  position: relative;
   text-align: center;
   margin-bottom: 32px;
+}
+
+.header-music-link {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-light);
+  font-size: 1.4rem;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s, color 0.2s;
+}
+
+.header-music-link:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-bright);
 }
 
 .header h1 {
@@ -74,6 +97,17 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.pick-link {
+  display: block;
+  width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.pick-link.is-empty {
+  pointer-events: none;
+}
+
 .pick-cover-wrap {
   position: relative;
   width: 100%;
@@ -84,11 +118,22 @@ body {
   margin-bottom: 12px;
 }
 
+.pick-cover-wrap.is-empty {
+  background: #000000;
+  background: rgba(0, 0, 0, 1);
+}
+
 .pick-cover {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.pick-cover.is-loaded {
+  opacity: 1;
 }
 
 .pick-cover[src=""],
@@ -99,7 +144,7 @@ body {
 .pick-placeholder {
   position: absolute;
   inset: 0;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   color: var(--text-dim);
@@ -299,7 +344,20 @@ body {
   border-radius: var(--radius-sm);
   object-fit: cover;
   flex-shrink: 0;
-  background: var(--bg-card-hover);
+  background: #000000;
+}
+
+.video-item-thumb--loading {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.video-item--loading .video-item-title {
+  opacity: 0.7;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
 }
 
 .video-item-info {
