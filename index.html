@@ -1,96 +1,218 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="referrer" content="no-referrer" />
-  <title>随机睡前放送</title>
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>随机睡前放送 | Sleepy Randomizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=PingFang+SC:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-base: #141221; 
+            --twilight-purple: #2A1F45;
+            --star-blue: #1A244D;
+            --accent-lilac: #A794D4; 
+            --bili-blue: #38BDF8; 
+            
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.05);
+        }
+
+        body {
+            font-family: 'PingFang SC', 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: #E2DFEB;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .dream-bg {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 20% 30%, var(--twilight-purple) 0%, transparent 60%),
+                radial-gradient(circle at 80% 80%, var(--star-blue) 0%, transparent 60%);
+            opacity: 0.8;
+            filter: blur(60px);
+        }
+
+        .glass-panel {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn-ghost-blend {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid transparent;
+            color: var(--accent-lilac);
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        .btn-ghost-blend:hover {
+            background: rgba(167, 148, 212, 0.08);
+            border-color: rgba(167, 148, 212, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .tab-indicator {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .collapse-wrapper {
+            display: grid;
+            grid-template-rows: 1fr; 
+            transition: grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .collapse-wrapper.is-collapsed {
+            grid-template-rows: 0fr; 
+        }
+        .collapse-inner {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 0; 
+        }
+
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+        
+        input[type="checkbox"] {
+            accent-color: var(--accent-lilac);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        .icon-btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 8px;
+            color: rgba(255, 255, 255, 0.4);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .icon-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: white;
+        }
+    </style>
 </head>
-<body>
-  <div id="app">
-    <!-- 主页面 -->
-    <main id="main-view" class="view">
-      <header class="header">
-        <a href="music.html" class="header-music-link" aria-label="睡前音乐" title="睡前音乐">♪</a>
-        <h1>随机睡前放送</h1>
-        <p class="slogan">随机选一个✨</p>
-      </header>
+<body class="min-h-screen flex flex-col selection:bg-[#A794D4] selection:text-white">
 
-      <section class="pick-section">
-        <div id="current-pick" class="current-pick card">
-          <a id="pick-link" class="pick-link" href="#" target="_blank" rel="noopener">
-            <div id="pick-cover-wrap" class="pick-cover-wrap is-empty">
-              <img id="pick-cover" class="pick-cover" src="" alt="" referrerpolicy="no-referrer" />
-              <span id="pick-placeholder" class="pick-placeholder">点击下方「随机抽」后显示封面，点击封面在新标签页打开视频</span>
+    <div class="dream-bg"></div>
+
+    <header class="w-full max-w-[1240px] mx-auto px-6 pt-10 pb-4 flex flex-col lg:flex-row gap-8">
+        <div class="w-full lg:w-3/5 flex items-end">
+            <h1 class="font-semibold tracking-wider text-xl flex items-center gap-2.5 text-white/90 ml-4">
+                随机睡前放送
+                <span class="px-1.5 py-0.5 rounded border border-[#A794D4]/30 text-[10px] text-[#A794D4] font-mono tracking-wider bg-[#A794D4]/10 leading-none transform -translate-y-[1px]">
+                    BETA
+                </span>
+            </h1>
+        </div>
+        
+        <div class="w-full lg:w-2/5 flex justify-end items-end pb-1">
+            <div class="relative flex gap-6 text-sm font-medium">
+                <button onclick="switchTab('video')" id="tab-video" class="pb-2 text-white/90 transition-colors z-10 w-12 text-center">视频</button>
+                <button onclick="switchTab('music')" id="tab-music" class="pb-2 text-white/40 hover:text-white/70 transition-colors z-10 w-12 text-center">音乐</button>
+                <div id="tab-indicator" class="tab-indicator absolute bottom-0 left-0 h-[2px] w-12 bg-[#A794D4] rounded-full transform translate-x-0"></div>
             </div>
-            <h2 id="pick-title" class="pick-title"></h2>
-          </a>
-          <button type="button" id="btn-pick" class="btn btn-primary">随机抽</button>
         </div>
-      </section>
+    </header>
 
-      <section class="list-section">
-        <button type="button" id="btn-toggle-list" class="btn-toggle-list" aria-expanded="false" aria-label="展开/收起列表">
-          <svg class="icon-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-          <span>我的列表</span>
-        </button>
-        <div id="list-panel" class="list-panel" hidden>
-          <div class="list-actions">
-            <label class="checkbox-label">
-              <input type="checkbox" id="select-all" />
-              <span>全选</span>
-            </label>
-            <button type="button" id="btn-delete-selected" class="btn btn-ghost">批量删除</button>
-            <button type="button" id="btn-add-video" class="btn btn-secondary">添加视频</button>
-          </div>
-          <div id="add-video-form" class="add-form" hidden>
-            <input type="text" id="video-url" class="input-url" placeholder="粘贴 B 站或 YouTube 链接" />
-            <div class="add-form-actions">
-              <button type="button" id="btn-add-confirm" class="btn btn-primary">添加</button>
-              <button type="button" id="btn-add-cancel" class="btn btn-ghost">取消</button>
+    <main class="w-full max-w-[1240px] mx-auto px-6 pb-6 flex-1 flex flex-col gap-4 z-10">
+        
+        <div class="flex flex-col lg:flex-row gap-8">
+            <div class="w-full lg:w-3/5 aspect-video glass-panel overflow-hidden relative flex flex-col items-center justify-center bg-black/40">
+                <!-- 默认占位 -->
+                <div id="random-placeholder" class="absolute inset-0 flex flex-col items-center justify-center opacity-30">
+                    <i data-lucide="moon-star" class="w-12 h-12 text-[#A794D4]"></i>
+                </div>
+                <!-- 内容展示 -->
+                <div id="random-content" class="absolute inset-0 hidden flex-col w-full h-full">
+                    <img id="random-cover" src="" alt="随机内容封面" class="w-full h-full object-cover opacity-60">
+                    <div class="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black/90 to-transparent">
+                        <h2 id="random-title" class="text-2xl font-semibold text-white tracking-wide"></h2>
+                        <div class="flex items-center gap-3 mt-2">
+                            <span id="random-source" class="px-2 py-0.5 rounded text-xs font-medium bg-white/10 text-white/80"></span>
+                            <a id="random-link" href="#" target="_blank" class="text-sm text-[#A794D4] hover:text-[#A794D4]/80 flex items-center gap-1 transition-colors">
+                                点击播放 <i data-lucide="external-link" class="w-3 h-3"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-          <ul id="video-list" class="video-list"></ul>
-        </div>
-      </section>
 
-      <section class="share-section">
-        <button type="button" id="btn-share" class="btn btn-secondary">分享列表</button>
-        <div id="share-result" class="share-result" hidden>
-          <p class="share-hint">打开即展示当前列表</p>
-          <div class="share-url-wrap">
-            <input type="text" id="share-url" class="input-url" readonly />
-            <button type="button" id="btn-copy" class="btn btn-primary">复制</button>
-          </div>
-        </div>
-      </section>
+            <div class="w-full lg:w-2/5 flex flex-col">
+                <div class="glass-panel flex flex-col h-full overflow-hidden relative">
+                    
+                    <button id="panel-header" class="px-5 py-4 flex justify-between items-center w-full" onclick="toggleCollapse()" aria-expanded="true" aria-controls="list-wrapper" aria-label="展开或收起列表">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="list" class="w-4 h-4 text-white/50" aria-hidden="true"></i>
+                            <span id="global-list-title" class="font-medium text-[13px] tracking-wide text-white/90">视频列表</span>
+                        </div>
+                        <i id="collapse-icon" data-lucide="chevron-up" class="w-4 h-4 text-white/50 transition-transform duration-300" aria-hidden="true"></i>
+                    </button>
 
-      <footer class="footer">
-        <p>本页面仅供个人放松使用。视频版权归 Bilibili、YouTube 及原作者所有。<br/>
-          用户添加与分享的列表由用户自行负责，与本站无关。</p>
-      </footer>
+                    <div id="list-wrapper" class="collapse-wrapper flex-1">
+                        <div class="collapse-inner h-full flex flex-col relative">
+                            
+                            <div id="action-bar" class="px-5 py-3 flex justify-between items-center z-10">
+                                <!-- JS Inject -->
+                            </div>
+
+                            <!-- 分割线：颜色更不显眼，融入背景 -->
+                            <div class="px-5 z-10">
+                                <div class="w-full h-[1px] bg-white/5" id="panel-separator"></div>
+                            </div>
+
+                            <div id="list-render-target" class="flex-1 overflow-y-auto p-2 pb-4 z-0">
+                                <!-- JS Inject -->
+                            </div>
+
+                            <!-- 音乐蒙版高度调小到 45% 左右，露出前两三首歌 -->
+                            <div id="music-overlay" class="hidden absolute bottom-0 left-0 w-full h-[45%] bg-gradient-to-t from-[#141221] via-[#141221]/90 to-transparent backdrop-blur-[1px] flex-col items-center justify-end pb-8 z-20">
+                                <span class="text-3xl mb-3">🚧</span>
+                                <span class="text-[13px] text-white/90 tracking-widest font-medium">敬请期待</span>
+                            </div>
+
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row gap-8">
+            <div class="w-full lg:w-3/5">
+                <button id="btn-pick" class="w-full py-4 rounded-2xl btn-ghost-blend text-sm tracking-widest flex items-center justify-center gap-3 font-medium">
+                    <i data-lucide="shuffle" class="w-4 h-4 opacity-70"></i>
+                    随机抽一个✨
+                </button>
+            </div>
+            <div class="w-full lg:w-2/5 hidden lg:block"></div>
+        </div>
+
     </main>
 
-    <!-- 分享展示页 -->
-    <main id="share-view" class="view" hidden>
-      <header class="header">
-        <h1>分享的睡前放送</h1>
-      </header>
-      <section class="share-list-section">
-        <ul id="share-video-list" class="video-list video-list--share"></ul>
-        <p id="share-empty" class="empty-hint" hidden>暂无分享列表或链接已失效。</p>
-      </section>
-      <footer class="footer">
-        <p>视频版权归原作者与平台所有。本页仅展示分享列表，不存储数据。</p>
-      </footer>
-    </main>
-  </div>
+    <footer class="w-full max-w-[1240px] mx-auto px-6 py-3 mt-auto z-10">
+        <p class="text-[11px] text-white/30 text-center leading-relaxed tracking-wider font-light">
+            本网站仅为用户提供第三方链接整理、收藏与分享，<br class="hidden sm:inline">
+            不代表对内容任何形式的审核或认可。
+        </p>
+    </footer>
 
-  <script src="data/recommended-videos.js"></script>
-  <script src="app.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>

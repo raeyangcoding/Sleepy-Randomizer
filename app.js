@@ -1,443 +1,321 @@
+
 (function () {
-  'use strict';
+    'use strict';
 
-  const STORAGE_KEY = 'bedtime-winddown-list';
-  const DEFAULT_LIST = [
-    { id: 'yt-1', source: 'youtube', videoId: 'jfKfPfyJRdk', url: 'https://www.youtube.com/watch?v=jfKfPfyJRdk', title: 'Lofi Girl 24/7 直播', cover: 'https://img.youtube.com/vi/jfKfPfyJRdk/mqdefault.jpg' },
-    { id: 'yt-2', source: 'youtube', videoId: '5qap5aO4i9A', url: 'https://www.youtube.com/watch?v=5qap5aO4i9A', title: 'Lofi Hip Hop 学习/放松', cover: 'https://img.youtube.com/vi/5qap5aO4i9A/mqdefault.jpg' },
-    { id: 'bl-1', source: 'bilibili', bvid: 'BV1uv411q7Mv', url: 'https://www.bilibili.com/video/BV1uv411q7Mv', title: 'B站睡前助眠 / 白噪音', cover: '' }
-  ];
+    // 全局状态
+    let state = {
+        isCollapsed: false,
+        isEditMode: false,
+        currentTab: 'video', // 'video' or 'music'
+        videos: [],
+        musics: [],
+        currentPick: null
+    };
 
-  let list = [];
-  let currentPickId = null;
-  let listPanelOpen = false;
-  const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000' : '';
+    // DOM 元素缓存
+    const dom = {
+        // 主播放器
+        randomPlaceholder: document.getElementById('random-placeholder'),
+        randomContent: document.getElementById('random-content'),
+        randomCover: document.getElementById('random-cover'),
+        randomTitle: document.getElementById('random-title'),
+        randomSource: document.getElementById('random-source'),
+        randomLink: document.getElementById('random-link'),
+        // 列表面板
+        listWrapper: document.getElementById('list-wrapper'),
+        collapseIcon: document.getElementById('collapse-icon'),
+        panelHeader: document.getElementById('panel-header'),
+        listTitle: document.getElementById('global-list-title'),
+        actionBar: document.getElementById('action-bar'),
+        renderTarget: document.getElementById('list-render-target'),
+        musicOverlay: document.getElementById('music-overlay'),
+        // Tab
+        tabVideo: document.getElementById('tab-video'),
+        tabMusic: document.getElementById('tab-music'),
+        tabIndicator: document.getElementById('tab-indicator'),
+        // 弹窗
+        addModal: document.getElementById('add-modal'),
+        addUrlInput: document.getElementById('add-url'),
+        // 按钮
+        pickButton: document.getElementById('btn-pick'),
+        confirmAddButton: document.getElementById('btn-confirm-add')
+    };
 
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => root.querySelectorAll(sel);
+    const STORAGE_KEYS = {
+        videos: 'sleepy-randomizer-videos',
+        musics: 'sleepy-randomizer-musics'
+    };
 
-  function loadList() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length) list = parsed;
-        else {
-          if (Array.isArray(window.RECOMMENDED_VIDEOS) && window.RECOMMENDED_VIDEOS.length) {
-            list = [...window.RECOMMENDED_VIDEOS];
-          } else {
-            list = [...DEFAULT_LIST];
-          }
+    const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000' : '';
+
+    // -- 初始化 --
+    function init() {
+        loadState();
+        setupEventListeners();
+        renderAll();
+        lucide.createIcons();
+    }
+
+    function setupEventListeners() {
+        dom.pickButton.addEventListener('click', pickRandom);
+        dom.panelHeader.addEventListener('click', toggleCollapse);
+        dom.tabVideo.addEventListener('click', () => switchTab('video'));
+        dom.tabMusic.addEventListener('click', () => switchTab('music'));
+        dom.confirmAddButton.addEventListener('click', handleAddConfirm);
+    }
+
+    // -- 状态管理 --
+    function loadState() {
+        try {
+            const storedVideos = localStorage.getItem(STORAGE_KEYS.videos);
+            const storedMusics = localStorage.getItem(STORAGE_KEYS.musics);
+
+            state.videos = storedVideos ? JSON.parse(storedVideos) : getMockData('videos');
+            state.musics = storedMusics ? JSON.parse(storedMusics) : getMockData('musics');
+        } catch (e) {
+            console.error("Failed to load state from localStorage:", e);
+            state.videos = getMockData('videos');
+            state.musics = getMockData('musics');
         }
-      } else {
-        if (Array.isArray(window.RECOMMENDED_VIDEOS) && window.RECOMMENDED_VIDEOS.length) {
-          list = [...window.RECOMMENDED_VIDEOS];
+    }
+
+    function saveState() {
+        try {
+            localStorage.setItem(STORAGE_KEYS.videos, JSON.stringify(state.videos));
+            localStorage.setItem(STORAGE_KEYS.musics, JSON.stringify(state.musics));
+        } catch (e) {
+            console.error("Failed to save state to localStorage:", e);
+        }
+    }
+
+    // -- 渲染逻辑 --
+    function renderAll() {
+        renderActionBar();
+        renderList();
+        renderPick();
+        lucide.createIcons();
+    }
+
+    function renderPick() {
+        if (state.currentPick) {
+            dom.randomPlaceholder.classList.add('hidden');
+            dom.randomContent.classList.remove('hidden');
+            dom.randomContent.classList.add('flex');
+
+            dom.randomCover.src = state.currentPick.cover;
+            dom.randomTitle.textContent = state.currentPick.title;
+            dom.randomSource.textContent = state.currentPick.source;
+            dom.randomLink.href = state.currentPick.url;
         } else {
-          list = [...DEFAULT_LIST];
+            dom.randomPlaceholder.classList.remove('hidden');
+            dom.randomContent.classList.add('hidden');
+            dom.randomContent.classList.remove('flex');
         }
-      }
-    } catch (_) {
-      if (Array.isArray(window.RECOMMENDED_VIDEOS) && window.RECOMMENDED_VIDEOS.length) {
-        list = [...window.RECOMMENDED_VIDEOS];
-      } else {
-        list = [...DEFAULT_LIST];
-      }
     }
-  }
 
-  function saveList() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
-    } catch (_) {}
-  }
-
-  function parseVideoUrl(input) {
-    const s = (input || '').trim();
-    if (!s) return null;
-    try {
-      const ytMatch = s.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-      if (ytMatch) {
-        const videoId = ytMatch[1];
-        return { source: 'youtube', videoId, url: `https://www.youtube.com/watch?v=${videoId}` };
-      }
-      const blMatch = s.match(/BV[0-9A-Za-z]{10}/i);
-      if (blMatch) {
-        const bvid = blMatch[0].toUpperCase();
-        return { source: 'bilibili', bvid, url: `https://www.bilibili.com/video/${bvid}` };
-      }
-      const b23Match = s.match(/https?:\/\/b23\.tv\/[0-9A-Za-z]+/i) || s.match(/b23\.tv\/[0-9A-Za-z]+/i);
-      if (b23Match) {
-        const shortUrl = b23Match[0].startsWith('http') ? b23Match[0] : `https://${b23Match[0]}`;
-        return { source: 'bilibili', shortUrl, url: shortUrl };
-      }
-    } catch (_) {}
-    return null;
-  }
-
-  async function fetchBilibiliMetadata(input, maxRetries = 3) {
-    const API_URL = `${API_BASE}/api/bilibili?input=${encodeURIComponent(input)}`;
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        if (data && data.bvid && data.pic) {
-          return data;
+    function renderList() {
+        if (state.currentTab === 'video') {
+            renderVideoList();
+        } else {
+            renderMusicList();
         }
-        throw new Error('Invalid API response');
-      } catch (error) {
-        if (attempt === maxRetries) {
-          console.warn('Failed to fetch Bilibili metadata:', error);
-          return null;
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-      }
     }
-    return null;
-  }
 
-  function youtubeCover(videoId) {
-     return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
-   }
+    function renderActionBar() {
+        let html;
+        if (state.isEditMode) {
+            html = `
+                <div class="flex items-center gap-3 px-1 text-sm text-white/80">
+                    <input type="checkbox" id="selectAll" class="bg-transparent border-white/20">
+                    <label for="selectAll" class="cursor-pointer select-none">全选</label>
+                </div>
+                <button class="icon-btn text-[#A794D4]" onclick="window.app.toggleEditMode()" aria-label="完成" title="完成">
+                    <i data-lucide="check" class="w-4 h-4 text-[#A794D4]" aria-hidden="true"></i>
+                </button>
+            `;
+        } else {
+            html = `
+                <div class="flex items-center gap-2">
+                    <button class="icon-btn" aria-label="分享列表" title="分享列表">
+                        <i data-lucide="share-2" class="w-4 h-4" aria-hidden="true"></i>
+                    </button>
+                    <button class="icon-btn" onclick="window.app.toggleAddModal()" aria-label="添加内容" title="添加内容">
+                        <i data-lucide="plus" class="w-4 h-4" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <button class="icon-btn" onclick="window.app.toggleEditMode()" aria-label="管理列表" title="管理列表">
+                    <i data-lucide="list-checks" class="w-4 h-4" aria-hidden="true"></i>
+                </button>
+            `;
+        }
+        dom.actionBar.innerHTML = html;
+        lucide.createIcons();
+    }
 
-  function fetchYoutubeTitle(url) {
-    return fetch(`https://noembed.com/embed?url=${encodeURIComponent(url)}`)
-      .then(r => r.json())
-      .then(data => (data && data.title) || 'YouTube 视频')
-      .catch(() => 'YouTube 视频');
-  }
-
-  function addVideoToList(item) {
-    if (item.source === 'youtube') {
-      return fetchYoutubeTitle(item.url).then(title => {
-        const id = 'yt-' + item.videoId;
-        if (list.some(v => v.id === id)) return Promise.resolve();
-        list.push({
-          id,
-          source: 'youtube',
-          videoId: item.videoId,
-          url: item.url,
-          title,
-          cover: youtubeCover(item.videoId)
+    function renderVideoList() {
+        let html = `<div class="space-y-1 mt-1">`;
+        state.videos.forEach(video => {
+            html += `
+                <div class="group flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer border border-transparent">
+                    ${state.isEditMode ? `<input type="checkbox" data-id="${video.id}" class="ml-1 opacity-80 group-hover:opacity-100 transition-opacity flex-shrink-0">` : ''}
+                    <div class="relative w-[72px] aspect-[16/10] bg-black/50 rounded flex-shrink-0 ml-1">
+                        <img src="${video.cover}" alt="${video.title} 的封面" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity">
+                    </div>
+                    <div class="flex-1 min-w-0 flex flex-col justify-center py-1">
+                        <h4 class="text-[13px] text-white/90 group-hover:text-white truncate leading-snug">${video.title}</h4>
+                        <span class="text-[11px] text-white/40 mt-1">${video.source}</span>
+                    </div>
+                    ${state.isEditMode ? `
+                        <button class="px-2 text-white/30 hover:text-white/80 transition-colors cursor-grab" aria-label="拖拽排序">
+                            <i data-lucide="menu" class="w-4 h-4" aria-hidden="true"></i>
+                        </button>
+                    ` : ''}
+                </div>
+            `;
         });
-        saveList();
-        renderList();
-      });
+        html += `</div>`;
+        dom.renderTarget.innerHTML = html;
+        lucide.createIcons();
     }
-    if (item.source === 'bilibili') {
-      const tempId = 'bl-temp-' + Date.now();
-      const tempItem = {
-        id: tempId,
-        source: 'bilibili',
-        bvid: item.bvid || '',
-        url: item.url,
-        title: 'B站视频',
-        cover: '',
-        loading: true
-      };
-      list.push(tempItem);
-      saveList();
-      renderList();
 
-      const input = item.bvid || item.shortUrl || item.url;
-      return fetchBilibiliMetadata(input).then(meta => {
-        const videoIndex = list.findIndex(v => v.id === tempId);
-        if (videoIndex === -1) return;
-        if (!meta) {
-          list[videoIndex].loading = false;
-          saveList();
-          renderList();
-          return;
-        }
-        const id = 'bl-' + meta.bvid;
-        if (list.some(v => v.id === id && v.id !== tempId)) {
-          list = list.filter(v => v.id !== tempId);
-          saveList();
-          renderList();
-          return;
-        }
-        list[videoIndex].id = id;
-        list[videoIndex].bvid = meta.bvid;
-        list[videoIndex].url = meta.url || `https://www.bilibili.com/video/${meta.bvid}`;
-        list[videoIndex].title = meta.title || list[videoIndex].title;
-        list[videoIndex].cover = meta.pic || '';
-        list[videoIndex].loading = false;
-        if (currentPickId === tempId || currentPickId === id) {
-          currentPickId = id;
-          showPick(list[videoIndex]);
-        }
-        saveList();
-        renderList();
-      }).catch(() => {
-        const videoIndex = list.findIndex(v => v.id === tempId);
-        if (videoIndex !== -1) {
-          list[videoIndex].loading = false;
-          saveList();
-          renderList();
-        }
-      });
+    function renderMusicList() {
+        let html = `<div class="space-y-0.5 px-1 pb-4 mt-2">`;
+        state.musics.forEach(track => {
+            html += `
+                <div class="group grid grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_44px] items-center gap-4 p-2 rounded-lg hover:bg-white/5 transition-colors cursor-pointer">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="relative w-10 h-10 flex-shrink-0">
+                            <img src="${track.cover}" alt="${track.album} 的专辑封面" class="w-full h-full rounded shadow-sm opacity-80 group-hover:opacity-100 transition-opacity object-cover">
+                            <div class="absolute inset-0 bg-black/40 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <i data-lucide="play" class="w-4 h-4 text-white fill-white ml-0.5" aria-hidden="true"></i>
+                            </div>
+                        </div>
+                        <div class="flex flex-col min-w-0">
+                            <span class="text-[13px] text-white/90 group-hover:text-white truncate font-medium">${track.title}</span>
+                            <span class="text-[11px] text-white/50 truncate group-hover:text-white/70 transition-colors mt-0.5">${track.artist}</span>
+                        </div>
+                    </div>
+                    <div class="text-[12px] text-white/50 truncate group-hover:text-white/70 transition-colors">${track.album}</div>
+                    <div class="text-[12px] text-white/40 font-mono text-right pr-2">${track.duration}</div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+        dom.renderTarget.innerHTML = html;
+        lucide.createIcons();
     }
-  }
 
-  function removeVideo(id) {
-    list = list.filter(v => v.id !== id);
-    saveList();
-    renderList();
-  }
-
-  function removeSelected() {
-    const checked = $$('#video-list input[type="checkbox"]:checked');
-    const ids = Array.from(checked).map(cb => cb.dataset.id);
-    list = list.filter(v => !ids.includes(v.id));
-    saveList();
-    renderList();
-    $('#select-all').checked = false;
-  }
-
-  function renderList() {
-    const ul = $('#video-list');
-    if (!ul) return;
-    const placeholder = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="45" viewBox="0 0 80 45"%3E%3Crect fill="%23000" width="80" height="45"/%3E%3C/svg%3E';
-    ul.innerHTML = list.map(v => {
-      const coverSrc = v.cover || placeholder;
-      const loadingClass = v.loading ? ' video-item-thumb--loading' : '';
-      return `
-        <li data-id="${v.id}" class="${v.loading ? 'video-item--loading' : ''}">
-          <img class="video-item-thumb${loadingClass}" src="${coverSrc}" alt="" referrerpolicy="no-referrer" />
-          <div class="video-item-info">
-            <p class="video-item-title">${escapeHtml(v.title)}</p>
-            <span class="video-item-meta">${v.source === 'youtube' ? 'YouTube' : 'Bilibili'}</span>
-          </div>
-          <div class="video-item-actions">
-            <input type="checkbox" data-id="${v.id}" aria-label="选择" />
-            <button type="button" class="btn-delete" data-id="${v.id}" aria-label="删除">删除</button>
-          </div>
-        </li>
-      `;
-    }).join('');
-
-    ul.querySelectorAll('.btn-delete').forEach(btn => {
-      btn.addEventListener('click', () => removeVideo(btn.dataset.id));
-    });
-    ul.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-      cb.addEventListener('change', syncSelectAll);
-    });
-  }
-
-  function escapeHtml(s) {
-    const div = document.createElement('div');
-    div.textContent = s;
-    return div.innerHTML;
-  }
-
-  function syncSelectAll() {
-    const all = $$('#video-list input[type="checkbox"]');
-    const checked = $$('#video-list input[type="checkbox"]:checked');
-    const selectAll = $('#select-all');
-    if (!selectAll) return;
-    selectAll.checked = all.length > 0 && checked.length === all.length;
-    selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
-  }
-
-  function ensureBilibiliCovers() {
-    const pending = list.filter(v => v.source === 'bilibili' && !v.cover);
-    if (!pending.length) return;
-    pending.forEach(v => {
-      v.loading = true;
-    });
-    renderList();
-    pending.forEach(v => {
-      const input = v.bvid || v.url;
-      fetchBilibiliMetadata(input).then(meta => {
-        v.cover = meta?.pic || '';
-        v.title = meta?.title || v.title;
-        v.loading = false;
-        if (currentPickId === v.id) showPick(v);
-        saveList();
-        renderList();
-      }).catch(() => {
-        v.loading = false;
-        saveList();
-        renderList();
-      });
-    });
-  }
-
-  function pickRandom() {
-    if (list.length === 0) {
-      showPick(null);
-      return;
+    // -- 交互逻辑 --
+    function pickRandom() {
+        const list = state.currentTab === 'video' ? state.videos : state.musics;
+        if (list.length === 0) return;
+        const randomIndex = Math.floor(Math.random() * list.length);
+        state.currentPick = list[randomIndex];
+        renderPick();
     }
-    const i = Math.floor(Math.random() * list.length);
-    const v = list[i];
-    showPick(v);
-  }
 
-  function showPick(v) {
-    const cover = $('#pick-cover');
-    const placeholder = $('#pick-placeholder');
-    const titleEl = $('#pick-title');
-    const link = $('#pick-link');
-    const wrap = $('#pick-cover-wrap');
-    if (!cover || !placeholder || !titleEl || !link || !wrap) return;
-    currentPickId = v ? v.id : null;
-    cover.onload = () => {
-      cover.classList.add('is-loaded');
+    function toggleCollapse() {
+        state.isCollapsed = !state.isCollapsed;
+        dom.listWrapper.classList.toggle('is-collapsed', state.isCollapsed);
+        dom.collapseIcon.style.transform = state.isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+        dom.panelHeader.setAttribute('aria-expanded', !state.isCollapsed);
+    }
+
+    function toggleEditMode() {
+        state.isEditMode = !state.isEditMode;
+        renderAll();
+    }
+
+    function switchTab(tab) {
+        state.currentTab = tab;
+        state.isEditMode = false;
+
+        const isVideo = tab === 'video';
+        dom.tabVideo.classList.toggle('text-white/90', isVideo);
+        dom.tabVideo.classList.toggle('text-white/40', !isVideo);
+        dom.tabMusic.classList.toggle('text-white/90', !isVideo);
+        dom.tabMusic.classList.toggle('text-white/40', isVideo);
+        dom.tabIndicator.style.transform = isVideo ? 'translateX(0)' : 'translateX(72px)';
+        dom.listTitle.innerText = isVideo ? '视频列表' : '音乐列表';
+        dom.musicOverlay.classList.toggle('hidden', isVideo);
+        dom.musicOverlay.classList.toggle('flex', !isVideo);
+
+        if (state.isCollapsed) toggleCollapse();
+        renderAll();
+    }
+
+    function toggleAddModal() {
+        dom.addModal.classList.toggle('hidden');
+        dom.addModal.classList.toggle('flex');
+    }
+
+    async function handleAddConfirm() {
+        const url = dom.addUrlInput.value;
+        if (!url) return;
+
+        const parsed = parseUrl(url);
+        if (!parsed) {
+            alert('不支持的链接格式');
+            return;
+        }
+
+        if (parsed.source === 'Bilibili' || parsed.source === 'YouTube') {
+            if (state.currentTab !== 'video') switchTab('video');
+            // 更多视频处理逻辑...
+        } else if (parsed.source === 'Spotify') {
+            if (state.currentTab !== 'music') switchTab('music');
+            // 更多音乐处理逻辑...
+        }
+
+        toggleAddModal();
+        dom.addUrlInput.value = '';
+    }
+
+    function parseUrl(url) {
+        if (url.includes('bilibili.com') || url.includes('b23.tv')) {
+            return { source: 'Bilibili', url };
+        } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
+            return { source: 'YouTube', url };
+        } else if (url.includes('spotify.com')) {
+            return { source: 'Spotify', url };
+        }
+        return null;
+    }
+
+    // -- Mock 数据 --
+    function getMockData(type) {
+        const coverPlaceholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231f1d2e'/%3E%3Cpath d='M50 35v18.5a7.5 7.5 0 1 0 5 7V40h10v-5H50z' fill='%233a3653'/%3E%3C/svg%3E";
+        if (type === 'videos') {
+            return [
+                { id: 1, type: "single", title: "口风琴+气垫=？", source: "Bilibili", cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=100&q=80", url: "#" },
+                { id: 2, type: "single", title: "谁说哈士奇不怕冷的？站出来，我家你怎么解释！", source: "Bilibili", cover: "https://images.unsplash.com/photo-1605568427561-40dd23c2acea?w=100&q=80", url: "#" },
+                { id: 3, type: "single", title: "沉浸式太空漫游：木星之声", source: "YouTube", cover: "https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?w=100&q=80", url: "#" }
+            ];
+        }
+        if (type === 'musics') {
+            return [
+                { id: 1, title: "Moon River", artist: "小野リサ", album: "Ono Lisa Best 1997-2001", duration: "04:23", cover: coverPlaceholder, url: "#" },
+                { id: 2, title: "SAY...GOOD NIGHT", artist: "角松敏生", album: "ON THE CITY SHORE", duration: "01:07", cover: coverPlaceholder, url: "#" },
+                { id: 3, title: "At The End Of The Day (Grace)", artist: "Quincy Jones", album: "Q's Jock Joint", duration: "07:42", cover: coverPlaceholder, url: "#" },
+                { id: 4, title: "GOOD-NIGHT FOR YOU", artist: "杏里", album: "Timely!!", duration: "05:20", cover: coverPlaceholder, url: "#" }
+            ];
+        }
+        return [];
+    }
+
+    // -- 暴露到全局 --
+    window.app = {
+        toggleCollapse,
+        toggleEditMode,
+        switchTab,
+        toggleAddModal
     };
-    cover.onerror = () => {
-      cover.classList.remove('is-loaded');
-    };
-    if (!v) {
-      cover.classList.remove('is-loaded');
-      cover.src = '';
-      cover.alt = '';
-      placeholder.hidden = true;
-      titleEl.textContent = '';
-      link.href = '#';
-      link.setAttribute('aria-disabled', 'true');
-      link.classList.add('is-empty');
-      wrap.classList.add('is-empty');
-      return;
+
+    // -- DOMContentLoaded --
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
     }
-    cover.classList.remove('is-loaded');
-    placeholder.hidden = true;
-    cover.src = v.cover || '';
-    cover.alt = v.title;
-    titleEl.textContent = v.title;
-    link.href = v.url;
-    link.removeAttribute('aria-disabled');
-    link.classList.remove('is-empty');
-    if (v.cover) wrap.classList.remove('is-empty');
-    else wrap.classList.add('is-empty');
-  }
 
-  function buildShareUrl() {
-    const data = btoa(unescape(encodeURIComponent(JSON.stringify(list))));
-    const url = new URL(window.location.href);
-    url.searchParams.set('share', data);
-    url.hash = '';
-    return url.toString();
-  }
-
-  function showShareResult() {
-    const block = $('#share-result');
-    const input = $('#share-url');
-    if (!block || !input) return;
-    input.value = buildShareUrl();
-    block.hidden = false;
-  }
-
-  function copyShareUrl() {
-    const input = $('#share-url');
-    if (!input) return;
-    input.select();
-    input.setSelectionRange(0, 99999);
-    try {
-      navigator.clipboard.writeText(input.value);
-      const btn = $('#btn-copy');
-      if (btn) { btn.textContent = '已复制'; setTimeout(() => { btn.textContent = '复制'; }, 1500); }
-    } catch (_) {}
-  }
-
-  function showMainView() {
-    $('#main-view').hidden = false;
-    $('#share-view').hidden = true;
-  }
-
-  function showShareView(sharedList) {
-    $('#main-view').hidden = true;
-    const shareView = $('#share-view');
-    const shareList = $('#share-video-list');
-    const shareEmpty = $('#share-empty');
-    shareView.hidden = false;
-    if (!sharedList || sharedList.length === 0) {
-      if (shareList) shareList.innerHTML = '';
-      if (shareEmpty) { shareEmpty.hidden = false; return; }
-    }
-    if (shareEmpty) shareEmpty.hidden = true;
-    if (shareList) {
-      shareList.innerHTML = sharedList.map(v => `
-        <li>
-          <a href="${v.url}" target="_blank" rel="noopener" style="display:flex;align-items:center;gap:12px;width:100%;text-decoration:none;color:inherit;">
-            <img class="video-item-thumb" src="${v.cover || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="80" height="45"%3E%3Crect fill="%23000" width="80" height="45"/%3E%3C/svg%3E'}" alt="" referrerpolicy="no-referrer" />
-            <div class="video-item-info">
-              <p class="video-item-title">${escapeHtml(v.title)}</p>
-              <span class="video-item-meta">${v.source === 'youtube' ? 'YouTube' : 'Bilibili'}</span>
-            </div>
-          </a>
-        </li>
-      `).join('');
-    }
-  }
-
-  function initMain() {
-    loadList();
-    renderList();
-    showPick(null);
-    ensureBilibiliCovers();
-
-    $('#btn-pick')?.addEventListener('click', pickRandom);
-
-    $('#btn-toggle-list')?.addEventListener('click', () => {
-      listPanelOpen = !listPanelOpen;
-      const panel = $('#list-panel');
-      const btn = $('#btn-toggle-list');
-      if (panel) panel.hidden = !listPanelOpen;
-      if (btn) btn.setAttribute('aria-expanded', listPanelOpen);
-    });
-
-    $('#select-all')?.addEventListener('change', function () {
-      $$('#video-list input[type="checkbox"]').forEach(cb => { cb.checked = this.checked; });
-      syncSelectAll();
-    });
-
-    $('#btn-delete-selected')?.addEventListener('click', removeSelected);
-
-    $('#btn-add-video')?.addEventListener('click', () => {
-      const form = $('#add-video-form');
-      if (form) form.hidden = !form.hidden;
-    });
-
-    $('#btn-add-cancel')?.addEventListener('click', () => {
-      $('#add-video-form').hidden = true;
-      $('#video-url').value = '';
-    });
-
-    $('#btn-add-confirm')?.addEventListener('click', () => {
-      const input = $('#video-url');
-      const parsed = parseVideoUrl(input?.value);
-      if (!parsed) { alert('请输入有效的 B 站或 YouTube 链接'); return; }
-      addVideoToList(parsed).then(() => {
-        input.value = '';
-        $('#add-video-form').hidden = true;
-      });
-    });
-
-    $('#btn-share')?.addEventListener('click', showShareResult);
-    $('#btn-copy')?.addEventListener('click', copyShareUrl);
-  }
-
-  function init() {
-    const params = new URLSearchParams(window.location.search);
-    const shareData = params.get('share');
-    if (shareData) {
-      try {
-        const json = decodeURIComponent(escape(atob(shareData)));
-        const sharedList = JSON.parse(json);
-        if (Array.isArray(sharedList) && sharedList.length) {
-          showShareView(sharedList);
-          return;
-        }
-      } catch (_) {}
-      showShareView([]);
-      return;
-    }
-    initMain();
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
 })();
