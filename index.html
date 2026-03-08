@@ -809,16 +809,28 @@
                     let cover = FALLBACK_COVER;
 
                     try {
-                        const res = await fetch(`https://bilicover.magecorn.com/get/${bvid}`);
-                        if (res.ok) {
-                            const data = await res.json();
-                            if (data && data.cover) {
-                                cover = data.cover;
-                                if (data.title) title = data.title;
+                        // 优先尝试 Bilibili 官方 API (基于用户提供的博客逻辑)
+                        // 注意：由于 CORS 限制，前端直接 fetch 可能失败，如果失败则尝试备用第三方 API
+                        const apiResp = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`);
+                        if (apiResp.ok) {
+                            const json = await apiResp.json();
+                            if (json && json.code === 0 && json.data) {
+                                title = json.data.title || title;
+                                cover = json.data.pic || cover;
+                            }
+                        } else {
+                            // 如果官方 API 被拦截或失败，尝试之前集成的 bilicover API (类似 see-tool.com 的功能)
+                            const res = await fetch(`https://bilicover.magecorn.com/get/${bvid}`);
+                            if (res.ok) {
+                                const data = await res.json();
+                                if (data && data.cover) {
+                                    cover = data.cover;
+                                    if (data.title) title = data.title;
+                                }
                             }
                         }
                     } catch (e) {
-                        console.warn('Bilicover API 失败，尝试备用逻辑', e);
+                        console.warn('Bilibili 解析失败，使用降级逻辑', e);
                     }
 
                     videoData = {
