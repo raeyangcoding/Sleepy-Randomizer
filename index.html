@@ -135,6 +135,28 @@
             opacity: 0.4;
             transform: scale(0.98);
         }
+
+        /* 标题编辑样式 */
+        .title-edit-input {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(167, 148, 212, 0.3);
+            border-radius: 4px;
+            color: white;
+            padding: 2px 6px;
+            width: 100%;
+            outline: none;
+            font-size: 13px;
+        }
+        .edit-title-btn {
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .sortable-item:hover .edit-title-btn {
+            opacity: 0.6;
+        }
+        .edit-title-btn:hover {
+            opacity: 1 !important;
+        }
         
         #submit-link-btn.loading-state {
             pointer-events: none;
@@ -326,6 +348,7 @@
     <script>
         let isCollapsed = false;
         let isEditMode = false;
+        let editingVideoId = null; // 当前正在编辑标题的视频 ID
         let currentTab = 'video';
         let isAddPopoverOpen = false;
         let selectedVideoIds = new Set();
@@ -532,12 +555,14 @@
 
             mockData.videos.forEach((video, index) => {
                 const isSelected = selectedVideoIds.has(video.id);
+                const isEditing = editingVideoId === video.id;
+                
                 html += `
                     <div class="sortable-item group flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors border ${isSelected ? 'border-white/20 bg-white/5' : 'border-transparent'}"
                          data-index="${index}" data-id="${video.id}" ${isEditMode ? 'draggable="true"' : ''} 
-                         title="${isEditMode ? '' : '点击播放 ' + video.title}" 
-                         aria-label="${isEditMode ? '' : '点击播放 ' + video.title}"
-                         onclick="${isEditMode ? '' : `playVideo('${video.url}', '${video.cover}', '${video.title.replace(/'/g, "\\'")}', '${video.source}')`}">
+                         title="${isEditMode || isEditing ? '' : '点击播放 ' + video.title}" 
+                         aria-label="${isEditMode || isEditing ? '' : '点击播放 ' + video.title}"
+                         onclick="${isEditMode || isEditing ? '' : `playVideo('${video.url}', '${video.cover}', '${video.title.replace(/'/g, "\\'")}', '${video.source}')`}">
                         
                         ${isEditMode ? `<input type="checkbox" data-id="${video.id}" ${isSelected ? 'checked' : ''} class="ml-1 opacity-80 group-hover:opacity-100 transition-opacity flex-shrink-0" title="选中视频：${video.title}" aria-label="选中视频：${video.title}">` : ''}
                         
@@ -545,9 +570,24 @@
                             <img src="${video.cover}" onerror="this.onerror=null;this.src='${FALLBACK_COVER}'" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="${video.title} 封面">
                         </div>
                         
-                        <div class="flex-1 min-w-0 flex flex-col justify-center py-1 pointer-events-none">
-                            <h4 class="text-[13px] text-white/90 group-hover:text-white truncate leading-snug">${video.title}</h4>
-                            <span class="text-[11px] text-white/40 mt-1">${video.source}</span>
+                        <div class="flex-1 min-w-0 flex flex-col justify-center py-1">
+                            ${isEditing ? `
+                                <input type="text" class="title-edit-input" value="${video.title}" 
+                                       onclick="event.stopPropagation()" 
+                                       onblur="saveTitleEdit(${video.id}, this.value)"
+                                       onkeydown="if(event.key==='Enter') this.blur()"
+                                       id="title-input-${video.id}">
+                            ` : `
+                                <div class="flex items-center gap-2 group/title">
+                                    <h4 class="text-[13px] text-white/90 group-hover:text-white truncate leading-snug">${video.title}</h4>
+                                    <button class="edit-title-btn text-white/30 hover:text-[#A794D4] transition-colors" 
+                                            onclick="startTitleEdit(event, ${video.id})" 
+                                            title="修改标题" aria-label="修改标题">
+                                        <i data-lucide="pencil-line" class="w-3.5 h-3.5"></i>
+                                    </button>
+                                </div>
+                                <span class="text-[11px] text-white/40 mt-1 pointer-events-none">${video.source}</span>
+                            `}
                         </div>
                         
                         ${isEditMode ? `
@@ -562,8 +602,32 @@
             html += `</div>`;
             renderTarget.innerHTML = html;
 
+            if (editingVideoId) {
+                const input = document.getElementById(`title-input-${editingVideoId}`);
+                if (input) {
+                    input.focus();
+                    input.select();
+                }
+            }
+
             bindSelectionEvents();
             if (isEditMode) bindDragEvents();
+        }
+
+        function startTitleEdit(e, id) {
+            e.stopPropagation();
+            editingVideoId = id;
+            renderAll();
+        }
+
+        function saveTitleEdit(id, newTitle) {
+            const video = mockData.videos.find(v => v.id === id);
+            if (video && newTitle.trim()) {
+                video.title = newTitle.trim();
+                saveVideos();
+            }
+            editingVideoId = null;
+            renderAll();
         }
 
         function renderMusicList() {
