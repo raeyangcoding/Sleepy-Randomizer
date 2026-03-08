@@ -194,9 +194,19 @@
     <main class="w-full max-w-[1240px] mx-auto px-6 pb-6 flex-1 flex flex-col gap-4 z-10">
         
         <div class="flex flex-col lg:flex-row gap-8">
-            <div class="w-full lg:w-3/5 aspect-video glass-panel overflow-hidden relative flex flex-col items-center justify-center bg-black/40">
-                <div class="absolute inset-0 flex flex-col items-center justify-center opacity-30">
+            <div class="w-full lg:w-3/5 aspect-video glass-panel overflow-hidden relative flex flex-col items-center justify-center bg-black/40" id="player-container">
+                <div id="player-placeholder" class="absolute inset-0 flex flex-col items-center justify-center opacity-30">
                     <i data-lucide="moon-star" class="w-12 h-12 text-[#A794D4]"></i>
+                </div>
+                <img id="player-cover" src="" class="absolute inset-0 w-full h-full object-cover hidden" alt="当前播放视频封面">
+                <div id="player-overlay" class="absolute inset-0 bg-black/20 hidden"></div>
+                
+                <!-- 底部信息蒙版 -->
+                <div id="player-info" class="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/80 to-transparent translate-y-full transition-transform duration-500 flex flex-col gap-1">
+                    <h2 id="player-title" class="text-white text-lg font-medium truncate"></h2>
+                    <div class="flex items-center gap-2">
+                        <span id="player-source-tag" class="px-1.5 py-0.5 rounded border border-white/20 text-[10px] text-white/70 font-mono tracking-wider bg-white/5 leading-none"></span>
+                    </div>
                 </div>
             </div>
 
@@ -247,7 +257,7 @@
 
         <div class="flex flex-col lg:flex-row gap-8">
             <div class="w-full lg:w-3/5">
-                <button class="w-full py-4 rounded-2xl btn-ghost-blend text-sm tracking-widest flex items-center justify-center gap-3 font-medium" title="随机抽取一个进行播放" aria-label="随机抽取一个进行播放">
+                <button class="w-full py-4 rounded-2xl btn-ghost-blend text-sm tracking-widest flex items-center justify-center gap-3 font-medium" title="随机抽取一个进行播放" aria-label="随机抽取一个进行播放" onclick="playRandom()">
                     <i data-lucide="sparkles" class="w-4 h-4 opacity-80"></i>
                     随机播放
                 </button>
@@ -524,7 +534,10 @@
                 const isSelected = selectedVideoIds.has(video.id);
                 html += `
                     <div class="sortable-item group flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors border ${isSelected ? 'border-white/20 bg-white/5' : 'border-transparent'}"
-                         data-index="${index}" data-id="${video.id}" ${isEditMode ? 'draggable="true"' : ''} title="${isEditMode ? '' : '点击播放 ' + video.title}" aria-label="${isEditMode ? '' : '点击播放 ' + video.title}">
+                         data-index="${index}" data-id="${video.id}" ${isEditMode ? 'draggable="true"' : ''} 
+                         title="${isEditMode ? '' : '点击播放 ' + video.title}" 
+                         aria-label="${isEditMode ? '' : '点击播放 ' + video.title}"
+                         onclick="${isEditMode ? '' : `playVideo('${video.url}', '${video.cover}', '${video.title.replace(/'/g, "\\'")}', '${video.source}')`}">
                         
                         ${isEditMode ? `<input type="checkbox" data-id="${video.id}" ${isSelected ? 'checked' : ''} class="ml-1 opacity-80 group-hover:opacity-100 transition-opacity flex-shrink-0" title="选中视频：${video.title}" aria-label="选中视频：${video.title}">` : ''}
                         
@@ -792,17 +805,21 @@
                     }
 
                     const bvid = bvidMatch[0];
-                    const apiResp = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`);
-                    if (!apiResp.ok) {
-                        throw new Error('Bilibili 接口请求失败');
-                    }
-                    const json = await apiResp.json();
-                    if (!json || json.code !== 0 || !json.data) {
-                        throw new Error('Bilibili 返回数据异常');
-                    }
+                    let title = rawUrl;
+                    let cover = FALLBACK_COVER;
 
-                    const title = json.data.title || rawUrl;
-                    const cover = json.data.pic || coverPlaceholder;
+                    try {
+                        const res = await fetch(`https://bilicover.magecorn.com/get/${bvid}`);
+                        if (res.ok) {
+                            const data = await res.json();
+                            if (data && data.cover) {
+                                cover = data.cover;
+                                if (data.title) title = data.title;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Bilicover API 失败，尝试备用逻辑', e);
+                    }
 
                     videoData = {
                         id: Date.now(),
@@ -836,7 +853,7 @@
 
                     const cover = videoId
                         ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                        : coverPlaceholder;
+                        : FALLBACK_COVER;
 
                     videoData = {
                         id: Date.now(),
@@ -854,7 +871,7 @@
                         type: "single",
                         title: rawUrl,
                         source: detectSource(url),
-                        cover: coverPlaceholder,
+                        cover: FALLBACK_COVER,
                         url
                     };
                 }
@@ -866,7 +883,7 @@
                     type: "single",
                     title: rawUrl,
                     source: detectSource(url),
-                    cover: coverPlaceholder,
+                    cover: FALLBACK_COVER,
                     url
                 };
             } finally {
@@ -888,6 +905,45 @@
                 toggleClearBtn();
                 resetSubmitBtn();
             }
+        }
+
+        function playVideo(url, cover, title, source) {
+            if (!url) return;
+            
+            // 更新播放器 UI
+            const playerCover = document.getElementById('player-cover');
+            const playerPlaceholder = document.getElementById('player-placeholder');
+            const playerOverlay = document.getElementById('player-overlay');
+            const playerInfo = document.getElementById('player-info');
+            const playerTitle = document.getElementById('player-title');
+            const playerSourceTag = document.getElementById('player-source-tag');
+            
+            if (playerCover && playerPlaceholder && playerOverlay && playerInfo) {
+                // 1. 先更新封面和文字信息
+                playerCover.src = cover || FALLBACK_COVER;
+                playerCover.classList.remove('hidden');
+                playerPlaceholder.classList.add('hidden');
+                playerOverlay.classList.remove('hidden');
+                
+                if (title) playerTitle.innerText = title;
+                if (source) playerSourceTag.innerText = source;
+                
+                // 2. 触发蒙版滑入动画
+                playerInfo.classList.remove('translate-y-full');
+                playerInfo.classList.add('translate-y-0');
+            }
+            
+            // 3. 延迟跳转，让用户看清随机结果（2000ms，方便确认视频信息）
+            setTimeout(() => {
+                window.open(url, '_blank');
+            }, 2000);
+        }
+
+        function playRandom() {
+            if (mockData.videos.length === 0) return;
+            const randomIndex = Math.floor(Math.random() * mockData.videos.length);
+            const video = mockData.videos[randomIndex];
+            playVideo(video.url, video.cover, video.title, video.source);
         }
 
         function resetSubmitBtn() {
