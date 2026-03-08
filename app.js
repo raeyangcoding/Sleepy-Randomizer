@@ -55,6 +55,8 @@
 
     const API_BASE = window.location.protocol === 'file:' ? 'http://localhost:3000' : '';
 
+    const coverPlaceholder = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='40' viewBox='0 0 72 40'%3E%3Crect width='72' height='40' fill='%231a1827'/%3E%3Cpath d='M30 20 L45 20 L30 30 Z' fill='%233a3653'/%3E%3C/svg%3E`;
+
     // -- 初始化 --
     function init() {
         loadState();
@@ -85,13 +87,17 @@
                 state.videos = window.RECOMMENDED_VIDEOS.map((v, i) => ({
                     ...v,
                     id: `video-${Date.now()}-${i}`,
-                    source: getSourceFromUrl(v.url)
+                    source: getSourceFromUrl(v.url),
+                    cover: coverPlaceholder // Initially set placeholder
                 }));
                 saveState();
             }
 
             const storedMusics = localStorage.getItem(STORAGE_KEYS.musics);
             state.musics = storedMusics ? JSON.parse(storedMusics) : getMockData('musics');
+
+            // Preload covers for existing videos
+            preloadVideoCovers();
         } catch (e) {
             console.error("Failed to load state:", e);
             state.videos = getMockData('videos');
@@ -173,6 +179,26 @@
         }
         dom.actionBar.innerHTML = html;
         lucide.createIcons();
+    }
+
+    async function preloadVideoCovers() {
+        const videosToLoad = state.videos.filter(v => !v.cover || v.cover === coverPlaceholder);
+        for (const video of videosToLoad) {
+            try {
+                if (video.source === 'Bilibili') {
+                    const bvid = video.url.match(/BV[a-zA-Z0-9]+/)[0];
+                    const response = await fetch(`https://bilicover.magecorn.com/get/${bvid}`);
+                    const data = await response.json();
+                    video.cover = data.cover;
+                    video.title = data.title;
+                }
+                // Add other sources like YouTube here if needed
+            } catch (error) {
+                console.error(`Failed to preload cover for ${video.title}:`, error);
+            }
+        }
+        saveState();
+        renderList();
     }
 
     function renderVideoList() {

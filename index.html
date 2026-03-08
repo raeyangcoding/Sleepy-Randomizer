@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
     <title>Sleepy Randomizer | 随机睡前放送</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -14,14 +15,13 @@
             --twilight-purple: #2A1F45;
             --star-blue: #1A244D;
             --accent-lilac: #A794D4; 
-            --bili-blue: #38BDF8; 
             
             --glass-bg: rgba(255, 255, 255, 0.03);
             --glass-border: rgba(255, 255, 255, 0.05);
         }
 
         body {
-            font-family: 'PingFang SC', 'Inter', sans-serif;
+            font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'WenQuanYi Micro Hei', 'sans-serif';
             background-color: var(--bg-base);
             color: #E2DFEB;
             overflow-x: hidden;
@@ -81,10 +81,10 @@
             min-height: 0; 
         }
 
-        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
         
         input[type="checkbox"] {
             accent-color: var(--accent-lilac);
@@ -140,6 +140,30 @@
             pointer-events: none;
             border-color: rgba(167, 148, 212, 0.3);
             background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        /* 保持右侧列表面板高度与左侧对齐，多余内容在内部滚动 */
+        @media (min-width: 1024px) {
+            #main-list-panel.h-full {
+                height: 100%;
+            }
+        }
+        
+        /* 强制滚动优化 */
+        #list-render-target {
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior: contain;
+            min-height: 0;
+            flex-basis: 0;
+        }
+
+        /* 修复滚动死锁：确保容器链条都允许收缩 */
+        .collapse-wrapper {
+            min-height: 0;
+        }
+        .collapse-inner {
+            min-height: 0;
         }
     </style>
 </head>
@@ -286,6 +310,9 @@
         </div>
     </div>
 
+    <!-- 推荐视频数据 -->
+    <script src="data/recommended-videos.js"></script>
+
     <script>
         let isCollapsed = false;
         let isEditMode = false;
@@ -294,13 +321,61 @@
         let selectedVideoIds = new Set();
 
         const coverPlaceholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%231f1d2e'/%3E%3Cpath d='M50 35v18.5a7.5 7.5 0 1 0 5 7V40h10v-5H50z' fill='%233a3653'/%3E%3C/svg%3E";
+        const FALLBACK_COVER = "resources/fallback-cover.png";
+
+        function detectSource(url) {
+            if (!url) return "链接";
+            if (url.includes("bilibili.com") || url.includes("b23.tv")) return "Bilibili";
+            if (url.includes("youtube.com") || url.includes("youtu.be")) return "YouTube";
+            return "链接";
+        }
+
+        function getInitialCoverFromUrl(url) {
+            if (!url) return FALLBACK_COVER;
+            if (url.includes("youtube.com") || url.includes("youtu.be")) {
+                let videoId = null;
+                const m1 = url.match(/[?&]v=([^&]+)/);
+                const m2 = url.match(/youtu\.be\/([^?&]+)/);
+                if (m1) videoId = m1[1];
+                else if (m2) videoId = m2[1];
+                if (videoId) {
+                    return `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+                }
+            }
+            return FALLBACK_COVER;
+        }
+
+        // 数据持久化逻辑
+        function loadVideos() {
+            try {
+                const cached = localStorage.getItem('sleepy_videos_v1');
+                if (cached) {
+                    const parsed = JSON.parse(cached);
+                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                }
+            } catch (e) { console.error('Read storage failed', e); }
+            
+            // 降级：使用种子数据
+            return Array.isArray(window.RECOMMENDED_VIDEOS)
+                ? window.RECOMMENDED_VIDEOS.map((v, index) => ({
+                    id: Date.now() + index,
+                    type: "single",
+                    title: v.title,
+                    source: detectSource(v.url),
+                    cover: getInitialCoverFromUrl(v.url),
+                    url: v.url
+                }))
+                : [];
+        }
+
+        function saveVideos() {
+            try {
+                localStorage.setItem('sleepy_videos_v1', JSON.stringify(mockData.videos));
+            } catch (e) { console.error('Save storage failed', e); }
+        }
 
         const mockData = {
-            videos: [
-                { id: 1, type: "single", title: "口风琴+气垫=？", source: "Bilibili", cover: "https://images.unsplash.com/photo-1511379938547-c1f69419868d?w=100&q=80" },
-                { id: 2, type: "single", title: "谁说哈士奇不怕冷的？站出来，我家你怎么解释！", source: "Bilibili", cover: "https://images.unsplash.com/photo-1605568427561-40dd23c2acea?w=100&q=80" },
-                { id: 3, type: "single", title: "沉浸式太空漫游：木星之声", source: "YouTube", cover: "https://images.unsplash.com/photo-1614730321146-b6fa6a46bcb4?w=100&q=80" }
-            ],
+            videos: loadVideos(),
             musics: [
                 { id: 1, title: "Moon River", artist: "小野リサ", album: "Ono Lisa Best 1997-2001", duration: "04:23", cover: coverPlaceholder },
                 { id: 2, title: "SAY...GOOD NIGHT", artist: "角松敏生", album: "ON THE CITY SHORE", duration: "01:07", cover: coverPlaceholder },
@@ -454,7 +529,7 @@
                         ${isEditMode ? `<input type="checkbox" data-id="${video.id}" ${isSelected ? 'checked' : ''} class="ml-1 opacity-80 group-hover:opacity-100 transition-opacity flex-shrink-0" title="选中视频：${video.title}" aria-label="选中视频：${video.title}">` : ''}
                         
                         <div class="relative w-[72px] aspect-[16/10] bg-black/50 rounded flex-shrink-0 ml-1 pointer-events-none">
-                            <img src="${video.cover}" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="${video.title} 封面">
+                            <img src="${video.cover}" onerror="this.onerror=null;this.src='${FALLBACK_COVER}'" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="${video.title} 封面">
                         </div>
                         
                         <div class="flex-1 min-w-0 flex flex-col justify-center py-1 pointer-events-none">
@@ -575,6 +650,7 @@
                         const draggedData = mockData.videos[dragStartIndex];
                         mockData.videos.splice(dragStartIndex, 1);
                         mockData.videos.splice(dropTargetIndex, 0, draggedData);
+                        saveVideos();
                         renderAll();
                     }
                 });
@@ -691,12 +767,6 @@
             btnLoader.classList.remove('hidden');
             btn.classList.add('loading-state');
 
-            const detectSource = (url) => {
-                if (url.includes('bilibili.com') || url.includes('b23.tv')) return 'Bilibili';
-                if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YouTube';
-                return '链接';
-            };
-
             const url = rawUrl;
             let videoData = null;
 
@@ -802,6 +872,7 @@
             } finally {
                 if (videoData) {
                     mockData.videos.unshift(videoData);
+                    saveVideos();
                     renderAll();
                 }
 
@@ -856,6 +927,7 @@
             mockData.videos = mockData.videos.filter(v => !selectedVideoIds.has(v.id));
             selectedVideoIds.clear();
 
+            saveVideos();
             hideDeleteConfirm();
             renderAll();
         }
