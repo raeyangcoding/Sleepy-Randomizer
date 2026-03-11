@@ -296,7 +296,7 @@
                 不代表对内容任何形式的审核或认可。
             </p>
             <div class="flex items-center gap-6 font-medium">
-                <a href="#" class="hover:text-[#A794D4] transition-colors flex items-center gap-1.5" title="Github issues" aria-label="Github issues">
+                <a href="https://github.com/raeyangcoding/Sleepy-Randomizer/issues" target="_blank" class="hover:text-[#A794D4] transition-colors flex items-center gap-1.5" title="Github issues" aria-label="Github issues">
                     <i data-lucide="github" class="w-4 h-4"></i> Github issues
                 </a>
             </div>
@@ -1009,10 +1009,10 @@
                 playerInfo.classList.add('translate-y-0');
             }
             
-            // 3. 延迟跳转，让用户看清随机结果（2000ms，方便确认视频信息）
+            // 3. 延迟跳转，让用户看清随机结果（1800ms，方便确认视频信息）
             setTimeout(() => {
                 window.open(url, '_blank');
-            }, 2000);
+            }, 1800);
         }
 
         function playRandom() {
@@ -1204,7 +1204,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A794D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
                         导入网址
                     </div>
-                    <div class="desc">粘贴网址列表，然后点击下面的导入按钮。每行一个网址，或者包含标题和网址。</div>
+                    <div class="desc">粘贴网址列表，然后点击下面的导入按钮。每行一个网址，或者包含标题和网址</div>
                     <textarea rows="10" placeholder="https://..." title="在此输入需要导入的网址" aria-label="在此输入需要导入的网址"></textarea>
                     <button class="btn" onclick="mockImport()" title="确定导入输入的网址" aria-label="确定导入输入的网址">导入</button>
                 </div>
