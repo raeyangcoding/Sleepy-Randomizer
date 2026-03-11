@@ -390,7 +390,7 @@
 
     function openImportExportPage() {
         const rawText = state.videos.map(v => `${v.title} ${v.url}`).join('\n');
-        const htmlContent = `...`; // (与你提供的 HTML 类似)
+        const htmlContent = `...`; 
         const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         window.open(url, '_blank');

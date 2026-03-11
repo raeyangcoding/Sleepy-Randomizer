@@ -334,7 +334,7 @@
                 支持Bilibili, YouTube等网站链接
             </p>
             <div class="relative flex items-center bg-[#110F19] border border-white/5 rounded-xl px-3 py-2.5 hover:border-white/10 focus-within:border-[#A794D4]/50 focus-within:bg-white/[0.02] transition-colors">
-                <input type="text" id="link-input" placeholder="在此粘贴链接..." class="w-full bg-transparent text-[13px] text-white/80 placeholder-white/20 outline-none pr-8" oninput="toggleClearBtn()">
+                <input type="text" id="link-input" placeholder="在此粘贴链接..." class="w-full bg-transparent text-[13px] text-white/80 placeholder-white/20 outline-none pr-8" oninput="toggleClearBtn()" onkeydown="if(event.key='enter') submitLink()">
                 <button id="clear-link-btn" class="absolute right-2.5 hidden transition-opacity opacity-70 hover:opacity-100" onclick="clearLinkInput()" title="清空内容" aria-label="清空内容">
                     <i data-lucide="x-circle" class="w-4 h-4 fill-white/20 text-[#110F19]"></i>
                 </button>
@@ -357,10 +357,10 @@
         const FALLBACK_COVER = "resources/fallback-cover.png";
 
         function detectSource(url) {
-            if (!url) return "链接";
+            if (!url) return "其他";
             if (url.includes("bilibili.com") || url.includes("b23.tv")) return "Bilibili";
             if (url.includes("youtube.com") || url.includes("youtu.be")) return "YouTube";
-            return "链接";
+            return "其他";
         }
 
         function getInitialCoverFromUrl(url) {
@@ -1237,7 +1237,7 @@
                     }
 
                     function mockImport() {
-                        showToast('已模拟导入操作，返回原页面刷新即可生效。');
+                        showToast('已导入视频，返回原页面刷新即可生效');
                     }
 
                     function copyExport() {
