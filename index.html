@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="referrer" content="no-referrer">
     <title>Sleepy Randomizer | 随机睡前放送</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -81,10 +80,10 @@
             min-height: 0; 
         }
 
-        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
         
         input[type="checkbox"] {
             accent-color: var(--accent-lilac);
@@ -135,28 +134,6 @@
             opacity: 0.4;
             transform: scale(0.98);
         }
-
-        /* 标题编辑样式 */
-        .title-edit-input {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(167, 148, 212, 0.3);
-            border-radius: 4px;
-            color: white;
-            padding: 2px 6px;
-            width: 100%;
-            outline: none;
-            font-size: 13px;
-        }
-        .edit-title-btn {
-            opacity: 0;
-            transition: opacity 0.2s;
-        }
-        .sortable-item:hover .edit-title-btn {
-            opacity: 0.6;
-        }
-        .edit-title-btn:hover {
-            opacity: 1 !important;
-        }
         
         #submit-link-btn.loading-state {
             pointer-events: none;
@@ -164,28 +141,63 @@
             background-color: rgba(255, 255, 255, 0.02);
         }
 
-        /* 保持右侧列表面板高度与左侧对齐，多余内容在内部滚动 */
+        /* ── 桌面端：列表绝对定位填满 wrapper（flex stretch 同步播放框高度），内部滚动 ── */
         @media (min-width: 1024px) {
-            #main-list-panel.h-full {
-                height: 100%;
+            #list-panel-wrapper {
+                position: relative;
+                overflow: hidden;
+            }
+            #main-list-panel {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                max-height: none;
+            }
+            /* 打断 flex 默认 min-height:auto，让高度约束链生效 */
+            #list-wrapper {
+                min-height: 0;
+            }
+            #list-render-target {
+                min-height: 0;
             }
         }
-        
-        /* 强制滚动优化 */
-        #list-render-target {
-            overflow-y: auto !important;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior: contain;
-            min-height: 0;
-            flex-basis: 0;
+
+        /* ── 平板和手机：锁定视口高度，列表填满剩余空间后内部滚动 ── */
+        @media (max-width: 1023px) {
+            body {
+                height: 100dvh;
+                overflow: hidden;
+            }
+            #main-top-row {
+                flex: 1;
+                min-height: 0;
+            }
+            #list-panel-wrapper {
+                flex: 1;
+                min-height: 0;
+            }
+            #main-list-panel {
+                max-height: none;
+            }
         }
 
-        /* 修复滚动死锁：确保容器链条都允许收缩 */
-        .collapse-wrapper {
-            min-height: 0;
-        }
-        .collapse-inner {
-            min-height: 0;
+        /* ── 手机端微调间距 ── */
+        @media (max-width: 639px) {
+            header {
+                padding-top: 1.25rem !important;
+                padding-bottom: 0.5rem !important;
+            }
+            main {
+                padding-left: 0.75rem !important;
+                padding-right: 0.75rem !important;
+                gap: 0.75rem !important;
+            }
+            footer {
+                padding-top: 0.75rem !important;
+                padding-bottom: 0.75rem !important;
+            }
         }
     </style>
 </head>
@@ -215,24 +227,22 @@
 
     <main class="w-full max-w-[1240px] mx-auto px-6 pb-6 flex-1 flex flex-col gap-4 z-10">
         
-        <div class="flex flex-col lg:flex-row gap-8">
-            <div class="w-full lg:w-3/5 aspect-video glass-panel overflow-hidden relative flex flex-col items-center justify-center bg-black/40" id="player-container">
-                <div id="player-placeholder" class="absolute inset-0 flex flex-col items-center justify-center opacity-30">
+        <div id="main-top-row" class="flex flex-col lg:flex-row gap-8">
+            <div id="player-area" class="w-full lg:w-3/5 aspect-video glass-panel overflow-hidden relative flex flex-col items-center justify-center bg-black/40">
+                <!-- 空状态：没有选中视频时显示 -->
+                <div id="player-empty" class="absolute inset-0 flex flex-col items-center justify-center opacity-30">
                     <i data-lucide="moon-star" class="w-12 h-12 text-[#A794D4]"></i>
                 </div>
-                <img id="player-cover" src="" class="absolute inset-0 w-full h-full object-cover hidden" alt="当前播放视频封面">
-                <div id="player-overlay" class="absolute inset-0 bg-black/20 hidden"></div>
-                
-                <!-- 底部信息蒙版 -->
-                <div id="player-info" class="absolute bottom-0 left-0 w-full p-4 bg-gradient-to-t from-black/80 to-transparent translate-y-full transition-transform duration-500 flex flex-col gap-1">
-                    <h2 id="player-title" class="text-white text-lg font-medium truncate"></h2>
-                    <div class="flex items-center gap-2">
-                        <span id="player-source-tag" class="px-1.5 py-0.5 rounded border border-white/20 text-[10px] text-white/70 font-mono tracking-wider bg-white/5 leading-none"></span>
-                    </div>
-                </div>
+                <!-- 选中了视频时显示，点击可跳转 -->
+                <a id="player-pick" href="#" target="_blank" rel="noopener noreferrer" class="hidden absolute inset-0 flex flex-col items-center justify-center group no-underline" title="新标签页打开视频">
+                    <img id="player-cover-img" src="" class="absolute inset-0 w-full h-full object-cover opacity-50" alt="">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+                    <h2 id="player-title" class="relative z-10 text-white text-xl font-semibold px-8 text-center drop-shadow-lg"></h2>
+                    <span id="player-source" class="relative z-10 text-white/50 text-sm mt-2"></span>
+                </a>
             </div>
 
-            <div class="w-full lg:w-2/5 flex flex-col">
+            <div id="list-panel-wrapper" class="w-full lg:w-2/5 flex flex-col">
                 <div id="main-list-panel" class="glass-panel flex flex-col h-full overflow-hidden relative transition-all duration-300">
                     
                     <div id="panel-header" class="px-5 py-4 flex justify-between items-center cursor-pointer" onclick="toggleCollapse()" role="button" tabindex="0" title="收起或展开列表" aria-label="收起或展开列表">
@@ -279,7 +289,7 @@
 
         <div class="flex flex-col lg:flex-row gap-8">
             <div class="w-full lg:w-3/5">
-                <button class="w-full py-4 rounded-2xl btn-ghost-blend text-sm tracking-widest flex items-center justify-center gap-3 font-medium" title="随机抽取一个进行播放" aria-label="随机抽取一个进行播放" onclick="playRandom()">
+                <button onclick="pickAndPlayRandom()" class="w-full py-4 rounded-2xl btn-ghost-blend text-sm tracking-widest flex items-center justify-center gap-3 font-medium" title="随机抽取一个进行播放" aria-label="随机抽取一个进行播放">
                     <i data-lucide="sparkles" class="w-4 h-4 opacity-80"></i>
                     随机播放
                 </button>
@@ -292,11 +302,11 @@
     <footer class="w-full max-w-[1240px] mx-auto px-6 py-5 mt-auto z-10 border-t border-white/5">
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-[12px] text-white/40">
             <p class="text-center md:text-left leading-relaxed tracking-wider font-light">
-                本网站仅为用户提供第三方链接整理、收藏与分享，<br class="hidden sm:inline">
-                不代表对内容任何形式的审核或认可。
+                本网站仅为用户提供第三方链接整理、收藏与分享<br class="hidden sm:inline">
+                不代表对内容任何形式的审核
             </p>
             <div class="flex items-center gap-6 font-medium">
-                <a href="https://github.com/raeyangcoding/Sleepy-Randomizer/issues" target="_blank" class="hover:text-[#A794D4] transition-colors flex items-center gap-1.5" title="Github issues" aria-label="Github issues">
+                <a href="#" class="hover:text-[#A794D4] transition-colors flex items-center gap-1.5" title="Github issues" aria-label="Github issues">
                     <i data-lucide="github" class="w-4 h-4"></i> Github issues
                 </a>
             </div>
@@ -334,7 +344,7 @@
                 支持Bilibili, YouTube等网站链接
             </p>
             <div class="relative flex items-center bg-[#110F19] border border-white/5 rounded-xl px-3 py-2.5 hover:border-white/10 focus-within:border-[#A794D4]/50 focus-within:bg-white/[0.02] transition-colors">
-                <input type="text" id="link-input" placeholder="在此粘贴链接..." class="w-full bg-transparent text-[13px] text-white/80 placeholder-white/20 outline-none pr-8" oninput="toggleClearBtn()" onkeydown="if(event.key='enter') submitLink()">
+                <input type="text" id="link-input" placeholder="在此粘贴链接..." class="w-full bg-transparent text-[13px] text-white/80 placeholder-white/20 outline-none pr-8" oninput="toggleClearBtn()">
                 <button id="clear-link-btn" class="absolute right-2.5 hidden transition-opacity opacity-70 hover:opacity-100" onclick="clearLinkInput()" title="清空内容" aria-label="清空内容">
                     <i data-lucide="x-circle" class="w-4 h-4 fill-white/20 text-[#110F19]"></i>
                 </button>
@@ -348,7 +358,6 @@
     <script>
         let isCollapsed = false;
         let isEditMode = false;
-        let editingVideoId = null; // 当前正在编辑标题的视频 ID
         let currentTab = 'video';
         let isAddPopoverOpen = false;
         let selectedVideoIds = new Set();
@@ -357,10 +366,10 @@
         const FALLBACK_COVER = "resources/fallback-cover.png";
 
         function detectSource(url) {
-            if (!url) return "其他";
+            if (!url) return "链接";
             if (url.includes("bilibili.com") || url.includes("b23.tv")) return "Bilibili";
             if (url.includes("youtube.com") || url.includes("youtu.be")) return "YouTube";
-            return "其他";
+            return "链接";
         }
 
         function getInitialCoverFromUrl(url) {
@@ -378,37 +387,17 @@
             return FALLBACK_COVER;
         }
 
-        // 数据持久化逻辑
-        function loadVideos() {
-            try {
-                const cached = localStorage.getItem('sleepy_videos_v1');
-                if (cached) {
-                    const parsed = JSON.parse(cached);
-                    if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-                }
-            } catch (e) { console.error('Read storage failed', e); }
-            
-            // 降级：使用种子数据
-            return Array.isArray(window.RECOMMENDED_VIDEOS)
+        const mockData = {
+            videos: Array.isArray(window.RECOMMENDED_VIDEOS)
                 ? window.RECOMMENDED_VIDEOS.map((v, index) => ({
-                    id: Date.now() + index,
+                    id: index + 1,
                     type: "single",
                     title: v.title,
                     source: detectSource(v.url),
                     cover: getInitialCoverFromUrl(v.url),
                     url: v.url
                 }))
-                : [];
-        }
-
-        function saveVideos() {
-            try {
-                localStorage.setItem('sleepy_videos_v1', JSON.stringify(mockData.videos));
-            } catch (e) { console.error('Save storage failed', e); }
-        }
-
-        const mockData = {
-            videos: loadVideos(),
+                : [],
             musics: [
                 { id: 1, title: "Moon River", artist: "小野リサ", album: "Ono Lisa Best 1997-2001", duration: "04:23", cover: coverPlaceholder },
                 { id: 2, title: "SAY...GOOD NIGHT", artist: "角松敏生", album: "ON THE CITY SHORE", duration: "01:07", cover: coverPlaceholder },
@@ -488,6 +477,59 @@
             renderAll();
         }
 
+        function pickAndPlayRandom() {
+            const list = currentTab === 'video' ? mockData.videos : mockData.musics;
+            if (!list || list.length === 0) return;
+            const randomIndex = Math.floor(Math.random() * list.length);
+            const item = list[randomIndex];
+            if (!item) return;
+            showPickInPlayer(item);
+            if (item.url) {
+                setTimeout(() => {
+                    window.open(item.url, '_blank', 'noopener,noreferrer');
+                }, 800);
+            }
+        }
+
+        function showPickInPlayer(item) {
+            const empty = document.getElementById('player-empty');
+            const pick = document.getElementById('player-pick');
+            const coverImg = document.getElementById('player-cover-img');
+            const titleEl = document.getElementById('player-title');
+            const sourceEl = document.getElementById('player-source');
+
+            if (!item) {
+                if (empty) empty.style.display = '';
+                if (pick) pick.classList.add('hidden');
+                return;
+            }
+
+            if (empty) empty.style.display = 'none';
+            if (pick) {
+                pick.classList.remove('hidden');
+                pick.href = item.url || '#';
+            }
+            if (coverImg) {
+                coverImg.src = item.cover || FALLBACK_COVER;
+                coverImg.onerror = function() { this.src = FALLBACK_COVER; };
+            }
+            if (titleEl) titleEl.textContent = item.title || '';
+            if (sourceEl) sourceEl.textContent = item.source || '';
+        }
+
+        // 列表项点击：展示在播放框 → 延迟 → 后台新标签页
+        function handleVideoClick(event, videoId) {
+            event.preventDefault();
+            const item = mockData.videos.find(v => v.id === videoId);
+            if (!item) return;
+            showPickInPlayer(item);
+            if (item.url) {
+                setTimeout(() => {
+                    window.open(item.url, '_blank', 'noopener,noreferrer');
+                }, 1500);
+            }
+        }
+
         function renderAll() {
             renderActionBar();
             if (currentTab === 'video') {
@@ -555,79 +597,49 @@
 
             mockData.videos.forEach((video, index) => {
                 const isSelected = selectedVideoIds.has(video.id);
-                const isEditing = editingVideoId === video.id;
-                
-                html += `
-                    <div class="sortable-item group flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors border ${isSelected ? 'border-white/20 bg-white/5' : 'border-transparent'}"
-                         data-index="${index}" data-id="${video.id}" ${isEditMode ? 'draggable="true"' : ''} 
-                         title="${isEditMode || isEditing ? '' : '点击播放 ' + video.title}" 
-                         aria-label="${isEditMode || isEditing ? '' : '点击播放 ' + video.title}"
-                         onclick="${isEditMode || isEditing ? '' : `playVideo('${video.url}', '${video.cover}', '${video.title.replace(/'/g, "\\'")}', '${video.source}')`}">
-                        
-                        ${isEditMode ? `<input type="checkbox" data-id="${video.id}" ${isSelected ? 'checked' : ''} class="ml-1 opacity-80 group-hover:opacity-100 transition-opacity flex-shrink-0" title="选中视频：${video.title}" aria-label="选中视频：${video.title}">` : ''}
-                        
-                        <div class="relative w-[72px] aspect-[16/10] bg-black/50 rounded flex-shrink-0 ml-1 pointer-events-none">
-                            <img src="${video.cover}" onerror="this.onerror=null;this.src='${FALLBACK_COVER}'" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="${video.title} 封面">
-                        </div>
-                        
-                        <div class="flex-1 min-w-0 flex flex-col justify-center py-1">
-                            ${isEditing ? `
-                                <input type="text" class="title-edit-input" value="${video.title}" 
-                                       onclick="event.stopPropagation()" 
-                                       onblur="saveTitleEdit(${video.id}, this.value)"
-                                       onkeydown="if(event.key==='Enter') this.blur()"
-                                       id="title-input-${video.id}">
-                            ` : `
-                                <div class="flex items-center gap-2 group/title">
-                                    <h4 class="text-[13px] text-white/90 group-hover:text-white truncate leading-snug">${video.title}</h4>
-                                    <button class="edit-title-btn text-white/30 hover:text-[#A794D4] transition-colors" 
-                                            onclick="startTitleEdit(event, ${video.id})" 
-                                            title="修改标题" aria-label="修改标题">
-                                        <i data-lucide="pencil-line" class="w-3.5 h-3.5"></i>
-                                    </button>
-                                </div>
-                                <span class="text-[11px] text-white/40 mt-1 pointer-events-none">${video.source}</span>
-                            `}
-                        </div>
-                        
-                        ${isEditMode ? `
+                const baseClasses = `sortable-item group flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors border ${isSelected ? 'border-white/20 bg-white/5' : 'border-transparent'}`;
+
+                if (isEditMode) {
+                    html += `
+                        <div class="${baseClasses}"
+                             data-index="${index}" data-id="${video.id}" draggable="true"
+                             title="点击选择 ${video.title}" aria-label="点击选择 ${video.title}">
+                            <input type="checkbox" data-id="${video.id}" ${isSelected ? 'checked' : ''} class="ml-1 opacity-80 group-hover:opacity-100 transition-opacity flex-shrink-0" title="选中视频：${video.title}" aria-label="选中视频：${video.title}">
+                            <div class="relative w-[72px] aspect-[16/10] bg-black/50 rounded flex-shrink-0 ml-1 pointer-events-none">
+                                <img src="${video.cover}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${FALLBACK_COVER}'" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="${video.title} 封面">
+                            </div>
+                            <div class="flex-1 min-w-0 flex flex-col justify-center py-1 pointer-events-none">
+                                <h4 class="text-[13px] text-white/90 group-hover:text-white truncate leading-snug">${video.title}</h4>
+                                <span class="text-[11px] text-white/40 mt-1">${video.source}</span>
+                            </div>
                             <button class="px-2 text-white/30 hover:text-white/80 transition-colors cursor-grab drag-handle" title="按住拖动以排序此视频" aria-label="按住拖动以排序此视频">
                                 <i data-lucide="menu" class="w-4 h-4 pointer-events-none"></i>
                             </button>
-                        ` : ''}
-                    </div>
-                `;
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <a href="${video.url}" target="_blank" rel="noopener noreferrer"
+                           onclick="event.preventDefault(); handleVideoClick(event, ${video.id})"
+                           class="${baseClasses}"
+                           title="新标签页打开 ${video.title}" aria-label="新标签页打开 ${video.title}">
+                            <div class="relative w-[72px] aspect-[16/10] bg-black/50 rounded flex-shrink-0 ml-1 pointer-events-none">
+                                <img src="${video.cover}" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src='${FALLBACK_COVER}'" class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" alt="${video.title} 封面">
+                            </div>
+                            <div class="flex-1 min-w-0 flex flex-col justify-center py-1 pointer-events-none">
+                                <h4 class="text-[13px] text-white/90 group-hover:text-white truncate leading-snug">${video.title}</h4>
+                                <span class="text-[11px] text-white/40 mt-1">${video.source}</span>
+                            </div>
+                        </a>
+                    `;
+                }
             });
 
             html += `</div>`;
             renderTarget.innerHTML = html;
 
-            if (editingVideoId) {
-                const input = document.getElementById(`title-input-${editingVideoId}`);
-                if (input) {
-                    input.focus();
-                    input.select();
-                }
-            }
-
             bindSelectionEvents();
             if (isEditMode) bindDragEvents();
-        }
-
-        function startTitleEdit(e, id) {
-            e.stopPropagation();
-            editingVideoId = id;
-            renderAll();
-        }
-
-        function saveTitleEdit(id, newTitle) {
-            const video = mockData.videos.find(v => v.id === id);
-            if (video && newTitle.trim()) {
-                video.title = newTitle.trim();
-                saveVideos();
-            }
-            editingVideoId = null;
-            renderAll();
         }
 
         function renderMusicList() {
@@ -727,7 +739,6 @@
                         const draggedData = mockData.videos[dragStartIndex];
                         mockData.videos.splice(dragStartIndex, 1);
                         mockData.videos.splice(dropTargetIndex, 0, draggedData);
-                        saveVideos();
                         renderAll();
                     }
                 });
@@ -869,33 +880,17 @@
                     }
 
                     const bvid = bvidMatch[0];
-                    let title = rawUrl;
-                    let cover = FALLBACK_COVER;
-
-                    try {
-                        // 优先尝试 Bilibili 官方 API (基于用户提供的博客逻辑)
-                        // 注意：由于 CORS 限制，前端直接 fetch 可能失败，如果失败则尝试备用第三方 API
-                        const apiResp = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`);
-                        if (apiResp.ok) {
-                            const json = await apiResp.json();
-                            if (json && json.code === 0 && json.data) {
-                                title = json.data.title || title;
-                                cover = json.data.pic || cover;
-                            }
-                        } else {
-                            // 如果官方 API 被拦截或失败，尝试之前集成的 bilicover API (类似 see-tool.com 的功能)
-                            const res = await fetch(`https://bilicover.magecorn.com/get/${bvid}`);
-                            if (res.ok) {
-                                const data = await res.json();
-                                if (data && data.cover) {
-                                    cover = data.cover;
-                                    if (data.title) title = data.title;
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('Bilibili 解析失败，使用降级逻辑', e);
+                    const apiResp = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`);
+                    if (!apiResp.ok) {
+                        throw new Error('Bilibili 接口请求失败');
                     }
+                    const json = await apiResp.json();
+                    if (!json || json.code !== 0 || !json.data) {
+                        throw new Error('Bilibili 返回数据异常');
+                    }
+
+                    const title = json.data.title || rawUrl;
+                    const cover = json.data.pic || coverPlaceholder;
 
                     videoData = {
                         id: Date.now(),
@@ -929,7 +924,7 @@
 
                     const cover = videoId
                         ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
-                        : FALLBACK_COVER;
+                        : coverPlaceholder;
 
                     videoData = {
                         id: Date.now(),
@@ -947,7 +942,7 @@
                         type: "single",
                         title: rawUrl,
                         source: detectSource(url),
-                        cover: FALLBACK_COVER,
+                        cover: coverPlaceholder,
                         url
                     };
                 }
@@ -959,13 +954,12 @@
                     type: "single",
                     title: rawUrl,
                     source: detectSource(url),
-                    cover: FALLBACK_COVER,
+                    cover: coverPlaceholder,
                     url
                 };
             } finally {
                 if (videoData) {
                     mockData.videos.unshift(videoData);
-                    saveVideos();
                     renderAll();
                 }
 
@@ -983,45 +977,6 @@
             }
         }
 
-        function playVideo(url, cover, title, source) {
-            if (!url) return;
-            
-            // 更新播放器 UI
-            const playerCover = document.getElementById('player-cover');
-            const playerPlaceholder = document.getElementById('player-placeholder');
-            const playerOverlay = document.getElementById('player-overlay');
-            const playerInfo = document.getElementById('player-info');
-            const playerTitle = document.getElementById('player-title');
-            const playerSourceTag = document.getElementById('player-source-tag');
-            
-            if (playerCover && playerPlaceholder && playerOverlay && playerInfo) {
-                // 1. 先更新封面和文字信息
-                playerCover.src = cover || FALLBACK_COVER;
-                playerCover.classList.remove('hidden');
-                playerPlaceholder.classList.add('hidden');
-                playerOverlay.classList.remove('hidden');
-                
-                if (title) playerTitle.innerText = title;
-                if (source) playerSourceTag.innerText = source;
-                
-                // 2. 触发蒙版滑入动画
-                playerInfo.classList.remove('translate-y-full');
-                playerInfo.classList.add('translate-y-0');
-            }
-            
-            // 3. 延迟跳转，让用户看清随机结果（1800ms，方便确认视频信息）
-            setTimeout(() => {
-                window.open(url, '_blank');
-            }, 1800);
-        }
-
-        function playRandom() {
-            if (mockData.videos.length === 0) return;
-            const randomIndex = Math.floor(Math.random() * mockData.videos.length);
-            const video = mockData.videos[randomIndex];
-            playVideo(video.url, video.cover, video.title, video.source);
-        }
-
         function resetSubmitBtn() {
             const btnText = document.getElementById('submit-link-text');
             const btnLoader = document.getElementById('submit-link-loader');
@@ -1029,6 +984,47 @@
             if(btnText) btnText.classList.remove('hidden');
             if(btnLoader) btnLoader.classList.add('hidden');
             if(btn) btn.classList.remove('loading-state');
+        }
+
+        async function preloadBilibiliCovers() {
+            const needCover = mockData.videos.filter(v =>
+                v.source === 'Bilibili' &&
+                (!v.cover || v.cover === FALLBACK_COVER || v.cover === coverPlaceholder)
+            );
+            for (const video of needCover) {
+                try {
+                    const bvidMatch = video.url.match(/BV[a-zA-Z0-9]+/);
+                    if (!bvidMatch) continue;
+                    const bvid = bvidMatch[0];
+
+                    // 优先走服务端代理，不可用时直连 B站 API
+                    let json = null;
+                    try {
+                        const proxyResp = await fetch(`/api/bilibili?input=${encodeURIComponent(bvid)}`);
+                        if (proxyResp.ok) json = await proxyResp.json();
+                    } catch (_) { /* 服务端不可用 */ }
+                    if (!json) {
+                        const directResp = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`);
+                        if (!directResp.ok) continue;
+                        json = await directResp.json();
+                    }
+
+                    if (json) {
+                        // 服务端代理返回 { pic, title, ... }，直连API返回 { data: { pic, title, ... } }
+                        const data = json.data || json;
+                        if (data.pic) {
+                            video.cover = data.pic.replace(/^http:/, 'https:');
+                        }
+                        if (data.title) video.title = data.title;
+                    }
+
+                    // 请求间隔，避免触发反爬
+                    await new Promise(r => setTimeout(r, 300));
+                } catch (e) {
+                    console.warn('预加载B站封面失败:', video.title, e);
+                }
+            }
+            renderVideoList();
         }
 
         function showDeleteConfirm() {
@@ -1059,7 +1055,6 @@
             mockData.videos = mockData.videos.filter(v => !selectedVideoIds.has(v.id));
             selectedVideoIds.clear();
 
-            saveVideos();
             hideDeleteConfirm();
             renderAll();
         }
@@ -1204,7 +1199,7 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A794D4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" x2="12" y1="15" y2="3"></line></svg>
                         导入网址
                     </div>
-                    <div class="desc">粘贴网址列表，然后点击下面的导入按钮。每行一个网址，或者包含标题和网址</div>
+                    <div class="desc">粘贴网址列表，然后点击下面的导入按钮。每行一个网址，或者包含标题和网址。</div>
                     <textarea rows="10" placeholder="https://..." title="在此输入需要导入的网址" aria-label="在此输入需要导入的网址"></textarea>
                     <button class="btn" onclick="mockImport()" title="确定导入输入的网址" aria-label="确定导入输入的网址">导入</button>
                 </div>
@@ -1237,7 +1232,7 @@
                     }
 
                     function mockImport() {
-                        showToast('已导入视频，返回原页面刷新即可生效');
+                        showToast('已模拟导入操作，返回原页面刷新即可生效。');
                     }
 
                     function copyExport() {
@@ -1257,6 +1252,7 @@
         }
 
         renderAll();
+        preloadBilibiliCovers();
 
     </script>
 </body>

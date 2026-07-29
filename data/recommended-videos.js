@@ -1,6 +1,5 @@
 window.RECOMMENDED_VIDEOS = [
     { title: "口风琴+气垫=？", url: "https://www.bilibili.com/video/BV171421C7Cf/" },
-    { title: "谁说哈士奇不怕冷的？站出来，我家的你怎么解释！", url: "https://www.bilibili.com/video/BV1hRCvYNEg5" },
     { title: "【纪录/历史】德国史 2季（中德双字/附花絮）", url: "https://www.bilibili.com/video/BV1Lt411o7yn" },
     { title: "Elmo's Bedtime Routine | Sesame Street Songs and Stories Compilation", url: "https://www.youtube.com/watch?v=jCt_q8tzBp4" },
     { title: "Mr Tumble's Bedtime Routine | Mr Tumble and Friends", url: "https://www.youtube.com/watch?v=Aosze55r9OU" },
