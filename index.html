@@ -80,10 +80,16 @@
             min-height: 0; 
         }
 
+        /* Chrome / Safari 滚动条 */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+        /* Firefox 滚动条 */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.05) transparent;
+        }
         
         input[type="checkbox"] {
             accent-color: var(--accent-lilac);
@@ -166,10 +172,6 @@
 
         /* ── 平板和手机：锁定视口高度，列表填满剩余空间后内部滚动 ── */
         @media (max-width: 1023px) {
-            body {
-                height: 100dvh;
-                overflow: hidden;
-            }
             #main-top-row {
                 flex: 1;
                 min-height: 0;
@@ -208,8 +210,8 @@
     <header class="w-full max-w-[1240px] mx-auto px-6 pt-10 pb-4 flex flex-col lg:flex-row gap-8">
         <div class="w-full lg:w-3/5 flex items-end">
             <h1 class="flex items-baseline gap-2.5 text-white/90 ml-4">
-                <span class="font-semibold tracking-wider text-xl">随机睡前放送</span>
-                <span class="font-english-playful text-lg opacity-70 mb-[-1px]">Sleepy Randomizer</span>
+                <!-- <span class="font-semibold tracking-wider text-xl">随机睡前放送</span> -->
+                <span class="font-english-playful text-2xl opacity-70 mb-[-1px]">Sleepy Randomizer</span>
                 <span class="px-1.5 py-0.5 rounded border border-[#A794D4]/30 text-[10px] text-[#A794D4] font-mono tracking-wider bg-[#A794D4]/10 leading-none transform -translate-y-[2px] ml-1">
                     BETA
                 </span>
@@ -477,11 +479,28 @@
             renderAll();
         }
 
+        let shuffledQueue = [];
+        let queueIndex = 0;
+
+        function shuffleArray(arr) {
+            const a = arr.slice();
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
         function pickAndPlayRandom() {
             const list = currentTab === 'video' ? mockData.videos : mockData.musics;
             if (!list || list.length === 0) return;
-            const randomIndex = Math.floor(Math.random() * list.length);
-            const item = list[randomIndex];
+
+            if (shuffledQueue.length === 0 || queueIndex >= shuffledQueue.length) {
+                shuffledQueue = shuffleArray(list);
+                queueIndex = 0;
+            }
+
+            const item = shuffledQueue[queueIndex++];
             if (!item) return;
             showPickInPlayer(item);
             if (item.url) {
@@ -526,7 +545,7 @@
             if (item.url) {
                 setTimeout(() => {
                     window.open(item.url, '_blank', 'noopener,noreferrer');
-                }, 1500);
+                }, 3000);
             }
         }
 
