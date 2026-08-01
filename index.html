@@ -67,8 +67,8 @@
 
         .collapse-wrapper {
             display: grid;
-            grid-template-rows: 1fr; 
-            transition: grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            grid-template-rows: 1fr;
+            transition: grid-template-rows 0.5s ease;
         }
         .collapse-wrapper.is-collapsed {
             grid-template-rows: 0fr; 
@@ -181,7 +181,13 @@
                 min-height: 0;
             }
             #main-list-panel {
-                max-height: none;
+                max-height: 45vh;
+            }
+            #list-wrapper {
+                min-height: 0;
+            }
+            #list-render-target {
+                min-height: 0;
             }
         }
 
@@ -190,6 +196,8 @@
             header {
                 padding-top: 1.25rem !important;
                 padding-bottom: 0.5rem !important;
+                padding-left: 0.75rem !important;
+                padding-right: 0.75rem !important;
             }
             main {
                 padding-left: 0.75rem !important;
@@ -209,7 +217,7 @@
 
     <header class="w-full max-w-[1240px] mx-auto px-6 pt-10 pb-4 flex flex-col lg:flex-row gap-8">
         <div class="w-full lg:w-3/5 flex items-end">
-            <h1 class="flex items-baseline gap-2.5 text-white/90 ml-4">
+            <h1 class="flex items-baseline gap-2.5 text-white/90">
                 <!-- <span class="font-semibold tracking-wider text-xl">随机睡前放送</span> -->
                 <span class="font-english-playful text-2xl opacity-70 mb-[-1px]">Sleepy Randomizer</span>
                 <span class="px-1.5 py-0.5 rounded border border-[#A794D4]/30 text-[10px] text-[#A794D4] font-mono tracking-wider bg-[#A794D4]/10 leading-none transform -translate-y-[2px] ml-1">
@@ -302,13 +310,15 @@
     </main>
 
     <footer class="w-full max-w-[1240px] mx-auto px-6 py-5 mt-auto z-10 border-t border-white/5">
-        <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-[12px] text-white/40">
-            <p class="text-center md:text-left leading-relaxed tracking-wider font-light">
-                本网站仅为用户提供第三方链接整理、收藏与分享<br class="hidden sm:inline">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-white/40">
+            <p class="w-full md:w-auto text-center md:text-left leading-relaxed tracking-wider font-light">
+                本网站仅为用户提供第三方链接整理、收藏与分享
+                <br>
                 不代表对内容任何形式的审核
+                <!-- <br class="hidden sm:inline"> -->
             </p>
             <div class="flex items-center gap-6 font-medium">
-                <a href="#" class="hover:text-[#A794D4] transition-colors flex items-center gap-1.5" title="Github issues" aria-label="Github issues">
+                <a href="https://github.com/raeyangcoding/Sleepy-Randomizer/issues" target="_blank" hover:text-[#A794D4] transition-colors flex items-center gap-1.5" title="Github issues" aria-label="Github issues">
                     <i data-lucide="github" class="w-4 h-4"></i> Github issues
                 </a>
             </div>
@@ -423,17 +433,12 @@
             isCollapsed = !isCollapsed;
             const wrapper = document.getElementById('list-wrapper');
             const icon = document.getElementById('collapse-icon');
-            
             if (isCollapsed) {
-                mainPanel.classList.remove('h-full');
                 wrapper.classList.add('is-collapsed');
                 icon.style.transform = 'rotate(180deg)';
             } else {
                 wrapper.classList.remove('is-collapsed');
                 icon.style.transform = 'rotate(0deg)';
-                setTimeout(() => {
-                    if (!isCollapsed) mainPanel.classList.add('h-full');
-                }, 400); 
             }
         }
 
