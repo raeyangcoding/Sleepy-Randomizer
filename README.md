@@ -1,30 +1,37 @@
- # random bedtime wind-down
+# 随机睡前放送 🌙 · Sleepy Randomizer
 
-This repository will host the web UI code for the **random bedtime wind-down** tool.
+> 一个睡前放松工具：维护一份舒缓视频列表，随机抽取播放。
+> A bedtime wind-down tool — maintain a list of relaxing videos and randomly pick one to play.
 
-## Project idea
+---
 
-- A small web app to help you relax before sleep, e.g. by:
-  - Generating random gentle prompts or activities
-  - Playing calming text, stories, or routines
-  - Providing a simple nightly checklist or wind-down flow
+## 技术栈 · Tech Stack
 
-## Tech stack (to be decided)
+- 单文件 HTML + 原生 JS，无框架无构建
+  Single HTML file, vanilla JavaScript — no framework, no build step
+- [Tailwind CSS](https://tailwindcss.com) (CDN)
+- [Lucide Icons](https://lucide.dev) (CDN)
+- Node.js 服务器用于 B站 API 代理，零依赖，仅用内置模块
+  Node.js server for Bilibili API proxy — zero dependencies, built-in modules only
 
-You can use any front-end stack you like, for example:
+## 功能 · Features
 
-- Plain HTML/CSS/JavaScript
-- React / Vue / Svelte
-- A Vite-based SPA
+| 功能 | 说明 |
+|---|---|
+| 随机播放 | Fisher-Yates 洗牌队列，播完一轮才重复 |
+| Bilibili + YouTube | 自动解析链接，获取标题和封面 |
+| 编辑模式 | 多选、拖拽排序、批量删除 |
+| 分享导出 | 生成独立 HTML 页面 |
+| 响应式 | 桌面端和移动端适配 |
+| 收起动效 | 平滑的 `max-height` 过渡动画 |
 
-## Getting started
+## 项目结构 · Project Structure
 
-1. Add your front-end code under a structure like:
-   - `public/` – static assets (icons, images, etc.)
-   - `src/` – application source
-2. Configure your build tool (if any) to output to `dist/` or `build/`.
-3. Optionally connect this repo to GitHub and set up deployment (e.g. GitHub Pages, Vercel, Netlify).
-
-## License
-
-Add your preferred license here (e.g. MIT).
+```
+index.html          # 整个应用
+server.js           # 静态服务 + B站 API 代理
+data/
+  recommended-videos.js   # 初始视频列表
+resources/
+  fallback-cover.png      # 封面占位图
+```

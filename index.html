@@ -65,21 +65,6 @@
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .collapse-wrapper {
-            display: grid;
-            grid-template-rows: 1fr;
-            transition: grid-template-rows 0.5s ease;
-        }
-        .collapse-wrapper.is-collapsed {
-            grid-template-rows: 0fr; 
-        }
-        .collapse-inner {
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            min-height: 0; 
-        }
-
         /* Chrome / Safari 滚动条 */
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -162,13 +147,12 @@
                 left: 0;
                 right: 0;
                 bottom: 0;
-                max-height: none;
+                max-height: 500px;
+                transition: max-height 0.5s ease;
             }
-            #main-list-panel.collapsed-view {
-                position: static;
+            #main-list-panel.is-collapsed {
                 max-height: 56px;
             }
-            /* 打断 flex 默认 min-height:auto，让高度约束链生效 */
             #list-wrapper {
                 min-height: 0;
             }
@@ -191,6 +175,14 @@
             }
             #main-list-panel {
                 max-height: 45vh;
+                transition: max-height 0.5s ease;
+            }
+            #main-list-panel.is-collapsed {
+                max-height: 56px;
+            }
+            #main-top-row.is-collapsed,
+            #list-panel-wrapper.is-collapsed {
+                flex-grow: 0;
             }
             #list-wrapper {
                 min-height: 0;
@@ -198,12 +190,6 @@
             #list-render-target {
                 min-height: 0;
             }
-        }
-
-        /* ── 收起后消除空白 ── */
-        #main-top-row.collapsed-row,
-        #list-panel-wrapper.collapsed-row {
-            flex-grow: 0;
         }
 
         /* ── 手机端微调间距 ── */
@@ -278,33 +264,29 @@
                         <i id="collapse-icon" data-lucide="chevron-up" class="w-4 h-4 text-white/50 transition-transform duration-300"></i>
                     </div>
 
-                    <div id="list-wrapper" class="collapse-wrapper flex-1">
-                        <div class="collapse-inner h-full flex flex-col relative">
-                            
-                            <div id="action-bar" class="px-5 py-3 flex justify-between items-center z-10">
-                                <!-- JS Inject -->
-                            </div>
+                    <div id="list-wrapper" class="flex-1 flex flex-col min-h-0">
+                        <div id="action-bar" class="px-5 py-3 flex justify-between items-center z-10">
+                            <!-- JS Inject -->
+                        </div>
 
-                            <div class="px-5 z-10">
-                                <div class="w-full h-[1px] bg-white/5" id="panel-separator"></div>
-                            </div>
+                        <div class="px-5 z-10">
+                            <div class="w-full h-[1px] bg-white/5" id="panel-separator"></div>
+                        </div>
 
-                            <div id="list-render-target" class="flex-1 overflow-y-auto p-2 pb-4 z-0">
-                                <!-- JS Inject -->
-                            </div>
+                        <div id="list-render-target" class="flex-1 overflow-y-auto p-2 pb-4 z-0">
+                            <!-- JS Inject -->
+                        </div>
 
-                            <div id="edit-footer" class="hidden px-5 py-3 z-10">
-                                <button class="delete-btn-glow flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium" onclick="showDeleteConfirm()" title="删除选中的内容" aria-label="删除选中的内容">
-                                    <i data-lucide="trash-2" class="w-4 h-4 transition-colors"></i>
-                                    删除
-                                </button>
-                            </div>
+                        <div id="edit-footer" class="hidden px-5 py-3 z-10">
+                            <button class="delete-btn-glow flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-medium" onclick="showDeleteConfirm()" title="删除选中的内容" aria-label="删除选中的内容">
+                                <i data-lucide="trash-2" class="w-4 h-4 transition-colors"></i>
+                                删除
+                            </button>
+                        </div>
 
-                            <div id="music-overlay" class="hidden absolute bottom-0 left-0 w-full h-[45%] bg-gradient-to-t from-[#141221] via-[#141221]/90 to-transparent backdrop-blur-[1px] flex-col items-center justify-end pb-8 z-20" title="该功能即将上线" aria-label="该功能即将上线">
-                                <span class="text-3xl mb-3">🚧</span>
-                                <span class="text-[13px] text-white/90 tracking-widest font-medium">敬请期待</span>
-                            </div>
-
+                        <div id="music-overlay" class="hidden absolute bottom-0 left-0 w-full h-[45%] bg-gradient-to-t from-[#141221] via-[#141221]/90 to-transparent backdrop-blur-[1px] flex-col items-center justify-end pb-8 z-20" title="该功能即将上线" aria-label="该功能即将上线">
+                            <span class="text-3xl mb-3">🚧</span>
+                            <span class="text-[13px] text-white/90 tracking-widest font-medium">敬请期待</span>
                         </div>
                     </div>
                     
@@ -329,7 +311,7 @@
             <p class="w-full md:w-auto text-center md:text-left leading-relaxed tracking-wider font-light">
                 本网站仅为用户提供第三方链接整理、收藏与分享
                 <br>
-                不代表对内容任何形式的审核
+                不代表对内容任何形式的认可
                 <!-- <br class="hidden sm:inline"> -->
             </p>
             <div class="flex items-center gap-6 font-medium">
@@ -446,24 +428,19 @@
 
         function toggleCollapse() {
             isCollapsed = !isCollapsed;
-            const wrapper = document.getElementById('list-wrapper');
             const icon = document.getElementById('collapse-icon');
             const mainTopRow = document.getElementById('main-top-row');
             const listPanelWrapper = document.getElementById('list-panel-wrapper');
 
             if (isCollapsed) {
-                wrapper.classList.add('is-collapsed');
+                mainPanel.classList.add('is-collapsed');
+                if (mainTopRow) mainTopRow.classList.add('is-collapsed');
+                if (listPanelWrapper) listPanelWrapper.classList.add('is-collapsed');
                 icon.style.transform = 'rotate(180deg)';
-                // flex-grow 有 transition，和 grid 动画同步
-                if (mainTopRow) mainTopRow.classList.add('collapsed-row');
-                if (listPanelWrapper) listPanelWrapper.classList.add('collapsed-row');
-                // position 无法 transition，延迟到动画结束后
-                setTimeout(() => mainPanel.classList.add('collapsed-view'), 500);
             } else {
-                if (mainTopRow) mainTopRow.classList.remove('collapsed-row');
-                if (listPanelWrapper) listPanelWrapper.classList.remove('collapsed-row');
-                mainPanel.classList.remove('collapsed-view');
-                wrapper.classList.remove('is-collapsed');
+                mainPanel.classList.remove('is-collapsed');
+                if (mainTopRow) mainTopRow.classList.remove('is-collapsed');
+                if (listPanelWrapper) listPanelWrapper.classList.remove('is-collapsed');
                 icon.style.transform = 'rotate(0deg)';
             }
         }
