@@ -147,8 +147,11 @@
             background-color: rgba(255, 255, 255, 0.02);
         }
 
-        /* ── 桌面端：列表绝对定位填满 wrapper（flex stretch 同步播放框高度），内部滚动 ── */
+        /* ── 桌面端 ── */
         @media (min-width: 1024px) {
+            html {
+                overflow-y: scroll;
+            }
             #list-panel-wrapper {
                 position: relative;
                 overflow: hidden;
@@ -161,6 +164,10 @@
                 bottom: 0;
                 max-height: none;
             }
+            #main-list-panel.collapsed-view {
+                position: static;
+                max-height: 56px;
+            }
             /* 打断 flex 默认 min-height:auto，让高度约束链生效 */
             #list-wrapper {
                 min-height: 0;
@@ -170,15 +177,17 @@
             }
         }
 
-        /* ── 平板和手机：锁定视口高度，列表填满剩余空间后内部滚动 ── */
+        /* ── 平板和手机 ── */
         @media (max-width: 1023px) {
             #main-top-row {
                 flex: 1;
                 min-height: 0;
+                transition: flex-grow 0.5s ease;
             }
             #list-panel-wrapper {
                 flex: 1;
                 min-height: 0;
+                transition: flex-grow 0.5s ease;
             }
             #main-list-panel {
                 max-height: 45vh;
@@ -189,6 +198,12 @@
             #list-render-target {
                 min-height: 0;
             }
+        }
+
+        /* ── 收起后消除空白 ── */
+        #main-top-row.collapsed-row,
+        #list-panel-wrapper.collapsed-row {
+            flex-grow: 0;
         }
 
         /* ── 手机端微调间距 ── */
@@ -433,10 +448,21 @@
             isCollapsed = !isCollapsed;
             const wrapper = document.getElementById('list-wrapper');
             const icon = document.getElementById('collapse-icon');
+            const mainTopRow = document.getElementById('main-top-row');
+            const listPanelWrapper = document.getElementById('list-panel-wrapper');
+
             if (isCollapsed) {
                 wrapper.classList.add('is-collapsed');
                 icon.style.transform = 'rotate(180deg)';
+                // flex-grow 有 transition，和 grid 动画同步
+                if (mainTopRow) mainTopRow.classList.add('collapsed-row');
+                if (listPanelWrapper) listPanelWrapper.classList.add('collapsed-row');
+                // position 无法 transition，延迟到动画结束后
+                setTimeout(() => mainPanel.classList.add('collapsed-view'), 500);
             } else {
+                if (mainTopRow) mainTopRow.classList.remove('collapsed-row');
+                if (listPanelWrapper) listPanelWrapper.classList.remove('collapsed-row');
+                mainPanel.classList.remove('collapsed-view');
                 wrapper.classList.remove('is-collapsed');
                 icon.style.transform = 'rotate(0deg)';
             }
